@@ -1,0 +1,1459 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Sushi bar Ordering</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Zen+Kaku+Gothic+New:wght@500;700&family=Noto+Sans+Myanmar:wght@400;700&family=Noto+Sans+Devanagari:wght@400;700&family=Noto+Sans+SC:wght@400;700&display=swap">
+<style>
+/* Layout: one narrow column of large tap targets; sheets shown as monospace text blocks that staff copy into chat. */
+:root{
+  --bg:#f1f3f5; --surface:#ffffff; --ink:#18202c; --muted:#5a6577; --line:#d6dbe3;
+  --accent:#1d4d7a; --accent-ink:#ffffff; --tint:#e6eef6; --warn:#a8501c; --ok:#2b7a4b; --bad:#b3261e;
+  --display:"Zen Kaku Gothic New","Noto Sans Myanmar","Noto Sans Devanagari","Noto Sans SC","Hiragino Sans","Noto Sans",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11151c; --surface:#19202a; --ink:#e7ebf1; --muted:#9aa5b6; --line:#2b3441;
+    --accent:#86b6e6; --accent-ink:#0e1824; --tint:#1e2a3a; --warn:#e0925a; --ok:#6fc193; --bad:#ff8a80;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11151c; --surface:#19202a; --ink:#e7ebf1; --muted:#9aa5b6; --line:#2b3441;
+  --accent:#86b6e6; --accent-ink:#0e1824; --tint:#1e2a3a; --warn:#e0925a; --ok:#6fc193; --bad:#ff8a80;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--ink); font-family:var(--display); font-size:16px; line-height:1.5;
+  padding-block:20px 48px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:20px;min-width:0}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:6px}
+
+.langs{display:flex;gap:6px;flex-wrap:wrap}
+.langs button{min-height:36px;padding:6px 12px;font-size:13px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.badge{font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:var(--surface)}
+.badge.edit{color:var(--ok);border-color:var(--ok)}
+h1{font-size:clamp(28px,7vw,40px);line-height:1.15;margin:0;font-weight:700;text-wrap:balance}
+h2{font-size:clamp(22px,5.5vw,28px);line-height:1.2;margin:0;font-weight:700;text-wrap:balance}
+.lede{color:var(--muted);margin:0;font-size:15px}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.tile{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:84px;padding:16px 18px;
+  background:var(--surface);border:1px solid var(--line);border-radius:10px;min-width:0;
+  transition:border-color .15s, background .15s;
+}
+.tile:hover{border-color:var(--accent);background:var(--tint)}
+.tile .t{font-size:19px;font-weight:700;line-height:1.25;overflow-wrap:anywhere}
+.tile .s{font-size:13px;color:var(--muted);margin-top:2px}
+.tile .go{font-size:20px;color:var(--accent);flex:none}
+.tile.compact{min-height:64px;padding:12px 16px}
+.tile.compact .t{font-size:17px}
+.tile .pill{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--warn);border:1px solid var(--warn);border-radius:999px;padding:2px 8px;flex:none}
+.days{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+
+.crumbs{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:14px;color:var(--muted)}
+.crumbs{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;align-self:flex-start;padding:6px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--line);box-shadow:0 1px 4px rgba(0,0,0,.15)}
+.crumbs a{color:var(--accent);font-weight:700;padding:6px 0}
+.crumbs a:hover{text-decoration:underline}
+
+.sheet{background:var(--surface);border:1px solid var(--line);border-radius:10px;min-width:0}
+.sheet-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--line)}
+.sheet-bar:not(.nostick){position:sticky;top:calc(env(safe-area-inset-top,0px) + 52px);z-index:15;background:var(--surface);border-radius:10px 10px 0 0}
+.sheet-bar .note{font-size:13px;color:var(--muted)}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+button{
+  font:inherit;font-size:14px;font-weight:700;min-height:40px;padding:8px 16px;border-radius:8px;cursor:pointer;
+  border:1px solid var(--line);background:var(--surface);color:var(--ink);
+}
+button:hover:not(:disabled){border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button:disabled{opacity:.5;cursor:default}
+.btnlink{font:inherit;font-size:14px;font-weight:700;min-height:40px;padding:8px 16px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);display:inline-flex;align-items:center;text-decoration:none}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+button,input.qty,textarea.txt{-webkit-appearance:none;appearance:none;-webkit-tap-highlight-color:transparent}
+#bgfix{position:fixed;top:0;right:0;bottom:0;left:0;z-index:-1;background-size:cover;background-position:center;background-repeat:no-repeat;pointer-events:none}
+pre.txt,textarea.txt{
+  display:block;width:100%;margin:0;padding:16px;border:0;background:transparent;color:var(--ink);
+  font-family:var(--mono);font-size:14px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere;
+  user-select:text;-webkit-user-select:text;
+}
+textarea.txt{font-size:16px;min-height:60vh;resize:vertical;border-radius:0 0 10px 10px}
+textarea.txt:focus-visible{outline-offset:-3px}
+.status{font-size:14px;color:var(--muted);min-height:20px}
+.status.err{color:var(--warn)}
+.hint{font-size:14px;color:var(--muted);margin:0;padding:12px 14px;background:var(--tint);border-radius:8px}
+.req{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+
+
+.h3{font-size:18px;margin:0;font-weight:700}
+.panel{overflow:visible;overflow:clip}
+.grp{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:var(--tint);padding:8px 14px}
+.frow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 14px;border-top:1px solid var(--line)}
+.frow .n,.orow .n{overflow-wrap:anywhere;min-width:0}
+.hero{background:var(--bg);background:color-mix(in srgb,var(--bg) 86%,transparent);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.bgbar{display:flex;gap:8px;flex-wrap:wrap}
+.frow.multi{grid-template-columns:minmax(0,1fr)}
+.frow.multi .f{justify-content:flex-start;flex-wrap:wrap}
+.frow .f{display:flex;align-items:center;gap:8px}
+.frow .u{min-width:44px;font-size:13px;color:var(--muted)}
+input.qty{font-family:var(--mono);font-size:16px;width:92px;min-height:42px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);text-align:right}
+input.qty:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
+.orow{display:grid;grid-template-columns:minmax(0,1fr) 84px 84px 92px;gap:8px;align-items:center;padding:10px 14px;border-top:1px solid var(--line)}
+.orow .c{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:14px}
+.orow.ohead{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;border-top:0}
+.ord{font-weight:700;color:var(--accent)}
+.ord.zero{color:var(--muted);font-weight:500}
+.panel .hint{border-radius:0}
+@media (max-width:520px){
+  .orow{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .orow .n{grid-column:1/-1}
+  .orow .c{text-align:left}
+  .orow .c::before{content:attr(data-label);display:block;font-family:var(--display);font-size:11px;color:var(--muted)}
+  .orow.ohead{display:none}
+}
+
+.need{color:var(--bad);font-weight:700}
+.tag{display:none;font-size:11px;font-weight:700;color:var(--bad);border:1px solid var(--bad);border-radius:999px;padding:1px 8px;margin-left:6px;white-space:nowrap}
+.frow.low .tag{display:inline-block}
+.frow.low .n{color:var(--bad);font-weight:700}
+input.qty.low{border-color:var(--bad);color:var(--bad)}
+.ro{font-family:var(--mono);font-size:14px;text-align:right;min-width:44px}
+@media (prefers-reduced-motion: reduce){.tile{transition:none}}
+</style>
+<div id="app"></div>
+<script type="application/json" id="state">{"bg":"","outlets":["PNG 1"],"data":{"PNG 1":{"standby":"Hi Chef\nStandby Balance list\nDate: \n\n1. Wafu Dressing Sauce (box)-\n2. Goma Salad Sauce (ml)-\n3. Hiyashi Soba Sauce (ml)-\n4. Awabi (pcs)-\n5. Boling Spaing Onion (box)\n6. Hirami (pkt)-\n7. Shima Aji (pkt)- \n8. Mad Tai (pkt)- \n9. Nigitoro Leek (box)- \n10. Nigitoro Takuan (box)- \n11. Botan Ebi (basket)- \n12. Amaebi (basket)-\n13. Nigitoro (box)- \n14. Anago Nigiri (nos)-\n15. Anago Yuzu (pcs)- \n16. Foie gras (basket)-\n17. Wagyu Nigiri  (tray)- \n18. Wagyu Sliced (tray)- \n19. Mango (tray)- \n20. Tako (box)-\n21. Torigai (pkt)- \n22. Tama Negi Wasabi (box)-\n23. Momiji Oroshi Sauce (box)-\n24. Spaing Onion (box)- \n25. Onion (box)- \n26. Leek (box)-\n27. Soy Garlic Sauce (Box)- \n28. Oba leaf (box)- \n29. Su Miso Sauce  (btl)- \n30. Yuzu Miso (btl)- \n31. Saba Sauce (Time) -\n32. Ebi Sauce (potion)- \n33. Tako Su Sauce (box)- \n34. Hamachi (pcs)- \n36. Tatar Sauce (box)-\n","minmax":{"Monday":"PNG\nDATE:\n\nXENKA\nSUSHI (PNG)\n\n1) Maguro :\n2) Tobiko :\n3) Ikura (500g) :\n4) Mongo ika :\n5) Kani stick gold :\n6) Snow crab :\n7) Sasa leaf :\n8) Hamachi Fillet :\n9) Sakura dembu :\n10) Tako :\n11) Halfcut  Nori :\n12) Ao Noriko :\n13) Inari :\n14) La-Yu:\n\n*FOOTAH*\nSUSHI (PNG)\n1) 1/2 shell abalone :\n2) Foie gras 25/40 :\n\n*LHS*\nSUSHI (PNG)\n\n1) Sushi gari :\n2) Takuan:\n3) Lobster Salad :\n4) Boten Ebi :\n5) Ama Ebi :\n6) Shiro torigai :\n7) Yuzu Kosho (S) :\n8) Whole Shell Oyster:\n\n*TOHO*\nSUSHI (PNG)\n\n1) Natto(1set/3box) :\n\n*SENRI*\nSUSHI (PNG)\n\n1. Katsuo Tataki :\n2)  Kinjirushi Kizami Wasabi (250gm) :\n3. Ni Anago Hiraki :\n4. Frozen akagai :\n5. Kizami Yuzu :\n7. Aori Ika (5-7pCs) :\n8. Nama Toro 1 Ban Won(5-6kg) :\n9. Ohba leaf 100pcs :\n10. Goma Oil :\n11. Kombu Tsuyu :\n12. JPN Yuzu Ko :\n13. Saikyo Miso :\n14. Ito Kezuri :\n15. shio konbu :\n16. Mizkan Ponzu sauce :\n17. Amaebi :\n18. Botan ebi :\n19. Uni100g :\n20. Shiro torigai :\n21. Negitoro :\n23. Natto 00789 :\n24. Itokezuri(20g) :\n25) Momiji oroshi :\n\n*BMG*\nSUSHI (PNG)\n\n1) Kumbuji Hirame :\n2) Tsubugai sliced :\n3) Shime Kohada :\n4) Engawa (500g) :\n5) Wasabi ko :\n6) Shiro torigai:\n\n(GST)✅\nSUSHI (PNG)\n\n1. Nama Hotate :\n2. Managatsuo :5 kg\n3. lkura (500g) :\n4. Akagai :\n5. Amaebi :\n\n*FOODAY*\nSUSHI (PNG)\n\n🥑 Avocado\n‎* Outlet: PNG\n‎* Quantity: \n‎* Ripe or Raw:  All ripe\n‎* Delivery on :(00/0/00)\n\n‎🥭 *Mango*\n‎* Outlet: PNG\n‎* Quantity:\n‎* Ripe or Raw:  all ripe\n‎* Delivery on :(00/0/00)\n‎* Delivery on :\n\n*UGS*✅\nSUSHI (PNG)\n\n1) CPE HAND GLOVE (5box)(M) : 20 box\n2) Kitchen Towel) (BDL) :6 ctn \n3) Garbage bag (BDL) :30 pkt\n4) MINI GAS (28BTL/CTN) : 15 pkt \n5) Orange Plastic Bag (10pkt):10 pkt\n6) CAP GEAR  5\"\" X 8\"\" (5pkt):10 pkt\n\nWAGYU(PNG)\n1) Wagyu Striploin:\n2) Wagyu Sliced:\n\n*FOODAY*✅\nSUSHI (PNG)\n\n1) Edible flower :3 pkt\n\nCENTRAL KITCHEN ✅\nSUSHIBAR (PNG)\n\n1) Fried Leeks:40 box\n2) Unagi:60 box\n3) Sushi Ebi:50 pkt\n4) Tuna Salad :4 pkt\n5) Spicy Sauce :3 portion\n6) Honeylemon Sauce:2 btl\n7) Volcano Sauce:2 portion\n8) Sushi Shoyu:4 btl\n9) Shitake Ni:4 pkt\n10) Black Rice Sauce:2 portion\n11) Truffle Butter:4 pkt\n12) UO Shoyu:3 btl\n13) Chicken floss:2 pkt\n14) Wasabi dressing Sauce: 2 btl\n15) Rice paper: 2 pkt\n16) Sea salt: 1 pkt\n17) Crystal Wrap: 6 pcs\n18) Leed Towel:1 pkt\n","Tuesday":"Not need order\n","Wednesday":"PNG\nDATE:\n\nXENKA\nSUSHI (PNG)\n\n1) Maguro :\n2) Tobiko :\n3) Ikura (500g) :\n4) Mongo ika :\n5) Kani stick gold :\n6) Snow crab :\n7) Sasa leaf :\n8) Hamachi Fillet :\n9) Sakura dembu :\n10) Tako :\n11) Halfcut  Nori :\n12) Ao Noriko :\n13) Inari :\n14) La-Yu:\n\n*FOOTAH*\nSUSHI (PNG)\n1) 1/2 shell abalone :\n2) Foie gras 25/40 :\n\n*LHS*\nSUSHI (PNG)\n\n1) Sushi gari :\n2) Takuan:\n3) Lobster Salad :\n4) Boten Ebi :\n5) Ama Ebi :\n6) Shiro torigai :\n7) Yuzu Kosho (S) :\n8) Whole Shell Oyster:\n\n*TOHO*\nSUSHI (PNG)\n\n1) Natto(1set/3box) :\n\n*SENRI*\nSUSHI (PNG)\n\n1. Katsuo Tataki :\n2)  Kinjirushi Kizami Wasabi (250gm) :\n3. Ni Anago Hiraki :\n4. Frozen akagai :\n5. Kizami Yuzu :\n7. Aori Ika (5-7pCs) :\n8. Nama Toro 1 Ban Won(5-6kg) :\n9. Ohba leaf 100pcs :\n10. Goma Oil :\n11. Kombu Tsuyu :\n12. JPN Yuzu Ko :\n13. Saikyo Miso :\n14. Ito Kezuri :\n15. shio konbu :\n16. Mizkan Ponzu sauce :\n17. Amaebi :\n18. Botan ebi :\n19. Uni100g :\n20. Shiro torigai :\n21. Negitoro :\n23. Natto 00789 :\n24. Itokezuri(20g) :\n25) Momiji oroshi :\n\n*BMG*\nSUSHI (PNG)\n\n1) Kumbuji Hirame :\n2) Tsubugai sliced :\n3) Shime Kohada :\n4) Engawa (500g) :\n5) Wasabi ko :\n6) Shiro torigai:\n\nGST (PNG)\nSUSHI (PNG)\n\n1. Nama Hotate :\n2. Managatsuo :\n3. lkura (500g) :\n4. Akagai :\n5. Amaebi :\n\n*FOODAY*\nSUSHI (PNG)\n\n🥑 Avocado\n‎* Outlet: PNG\n‎* Quantity: \n‎* Ripe or Raw:  All ripe\n‎* Delivery on :\n\n‎🥭 *Mango*\n‎* Outlet: PNG\n‎* Quantity:\n‎* Ripe or Raw:  all ripe\n‎* Delivery on :\n‎* Delivery on :\n\n*UGS*\nSUSHI (PNG)\n\n1) CPE HAND GLOVE (5box) :\n2) Kitchen Towel) (BDL) :\n3) Garbage bag (BDL) :\n4) MINI GAS (28BTL/CTN) :\n5) Orange Plastic Bag (10pkt):\n6) CAP GEAR  5\"\" X 8\"\" (5pkt):\n\nWAGYU(PNG)✅\n1) Wagyu Striploin:11 pkt\n2) Wagyu Sliced:8 pkt\n\n*FOODAY*✅\nSUSHI (PNG)\n\n1) Edible flower :3 pkt\n\nCENTRAL KITCHEN\nSUSHIBAR (PNG)\n\n1) Fried Leeks :\n2) Unagi :\n3) Sushi Ebi :\n4) Tuna Salad :\n5) Spicy Sauce :\n6) Honeylemon Sauce :\n7) Volcano Sauce :\n8) Sushi Shoyu :\n9) Shitake Ni :\n10) Black Rice Sauce :\n11) Truffle Butter:\n12) UO Shoyu:\n13) Chicken floss :\n14) Wasabi Dressing :\n15) Rice Paper :\n16) Sea Salt :\n17) Crystal Wrap:\n18) Leed Towel:\n","Thursday":"PNG\nDATE:\n\nXENKA✅\nSUSHI (PNG)\n\n1) Maguro :55 pkt\n2) Tobiko :17 box\n3) Ikura (500g) :10 box\n4) Mongo ika :25 pkt\n5) Kani stick gold :15 pkt\n6) Snow crab :25 pkt\n7) Sasa leaf :3 pkt\n8) Hamachi Fillet :7 pkt\n9) Sakura dembu :2 pkt\n10) Tako :6 pkt\n11) Halfcut  Nori :25 pkt\n12) Ao Noriko :1 pkt\n13) Inari :\n14) La-Yu:2 pkt\n\n*FOOTAH*\nSUSHI (PNG)\n1) 1/2 shell abalone :\n2) Foie gras 25/40 :\n\n*LHS*\nSUSHI (PNG)\n\n1) Sushi gari :\n2) Takuan:\n3) Lobster Salad :\n4) Boten Ebi :\n5) Ama Ebi :\n6) Shiro torigai :\n7) Yuzu Kosho (S) :\n8) Whole Shell Oyster:\n\n*TOHO*\nSUSHI (PNG)\n\n1) Natto(1set/3box) :\n\n*SENRI*\nSUSHI (PNG)\n\n1. Katsuo Tataki :\n2)  Kinjirushi Kizami Wasabi (250gm) :\n3. Ni Anago Hiraki :\n4. Frozen akagai :\n5. Kizami Yuzu :\n7. Aori Ika (5-7pCs) :\n8. Nama Toro 1 Ban Won(5-6kg) :\n9. Ohba leaf 100pcs :\n10. Goma Oil :\n11. Kombu Tsuyu :\n12. JPN Yuzu Ko :\n13. Saikyo Miso :\n14. Ito Kezuri :\n15. shio konbu :\n16. Mizkan Ponzu sauce :\n17. Amaebi :\n18. Botan ebi :\n19. Uni100g :\n20. Shiro torigai :\n21. Negitoro :\n23. Natto 00789 :\n24. Itokezuri(20g) :\n25) Momiji oroshi :\n\n*BMG*\nSUSHI (PNG)\n\n1) Kumbuji Hirame :\n2) Tsubugai sliced :\n3) Shime Kohada :\n4) Engawa (500g) :\n5) Wasabi ko :\n6) Shiro torigai:\n\n(GST)✅\nSUSHI (PNG)\n\n1. Nama Hotate :10 box\n2. Managatsuo :\n3. lkura (500g) :\n4. Akagai :\n5. Amaebi :\n\n*FOODAY*✅\nSUSHI (PNG)\n\n🥑 Avocado\n‎* Outlet: PNG\n‎* Quantity: \n‎* Ripe or Raw:  All ripe\n‎* Delivery on :(00/0/00)\n\n‎🥭 *Mango*\n‎* Outlet: PNG\n‎* Quantity:\n‎* Ripe or Raw:  all ripe\n‎* Delivery on :(00/0/00)\n‎* Delivery on :\n\n*UGS*\nSUSHI (PNG)\n\n1) CPE HAND GLOVE (5box) :\n2) Kitchen Towel) (BDL) :\n3) Garbage bag (BDL) :\n4) MINI GAS (28BTL/CTN) :\n5) Orange Plastic Bag (10pkt):\n6) CAP GEAR  5\"\" X 8\"\" (5pkt):\n\nWAGYU(PNG)\n1) Wagyu Striploin:\n2) Wagyu Sliced:\n\n*FOODAY*✅\nSUSHI (PNG)\n\n1) Edible flower :3 pkt\n\nCENTRAL KITCHEN ✅\nSUSHIBAR (PNG)\n\n1) Fried Leeks:50 box\n2) Unagi:60 box\n3) Sushi Ebi:60 pkt\n4) Tuna Salad :5 pkt\n5) Spicy Sauce :2 portion\n6)Honeylemon Sauce:2 btl\n7) Volcano Sauce:2 portion\n8) Sushi Shoyu:4 btl\n9) Shitake Ni:4 pkt\n10) Black Rice Sauce:2 portion\n11) Truffle Butter:5 pkt\n12) UO Shoyu:3 btl\n13) Chicken floss:\n14) Wasabi dressing Sauce: 2 btl\n15) Rice paper: 2 pkt\n16) Sea salt: 1 pkt\n17) Crystal Wrap: 1 ctn\n18) Leed Towel:1 pkt\n","Friday":"Not need order\n","Saturday":"Not need order\n","Sunday":"PNG\nDATE:\n\nXENKA✅\nSUSHI (PNG)\n\n1) Maguro :55 pkt\n2) Tobiko :17 box\n3) Ikura (500g) :10 box\n4) Mongo ika :25 pkt\n5) Kani stick gold :15 pkt\n6) Snow crab :25 pkt\n7) Sasa leaf :3 pkt\n8) Hamachi Fillet :7 pkt\n9) Sakura dembu :2 pkt\n10) Tako :6 pkt\n11) Halfcut  Nori :25 pkt\n12) Ao Noriko :1 pkt\n13) Inari :\n14) La-Yu:2 pkt\n\n*FOOTAH*✅\nSUSHI (PNG)\n1) 1/2 shell abalone :2 pkt\n2) Foie gras 25/40 :5 pkt\n\n*LHS*✅\nSUSHI (PNG)\n\n1) Sushi gari :7 ctn\n2) Takuan:5 pkt\n3) Lobster Salad :10 pkt\n4) Boten Ebi :4 pkt\n5) Ama Ebi :3 pkt\n6) Shiro torigai :4 pkt\n7) Yuzu Kosho (S) :2 btl\n8) Whole Shell Oyster:3 pkt\n\n*TOHO*✅\nSUSHI (PNG)\n\n1) Natto(1set/3box) :22 set\n\n*SENRI*✅\nSUSHI (PNG)\n\n1. Katsuo Tataki :7 pkt\n2)  Kinjirushi Kizami Wasabi (250gm) :5 pkt\n3. Ni Anago Hiraki :15 pkt\n4. Frozen akagai :6 pkt\n5. Kizami Yuzu :5 pkt\n6. Aori Ika (5-7pCs) :8 pkt\n7. Nama Toro 1 Ban Won(5-6kg) :\n8. Ohba leaf 100pcs :1 pkt\n9. Goma Oil :1 btl\n10. Kombu Tsuyu :2 btl\n11. JPN Yuzu Ko :2 btl\n12. Saikyo Miso :3 btl\n14. Ito Kezuri :4 pkt\n14. shio konbu :2 pkt\n15. Mizkan Ponzu sauce :1 btl\n16. Amaebi :\n17. Botan ebi :\n18. Uni100g :\n19. Shiro torigai :\n20. Negitoro :\n21. Natto 00789 :\n22. Itokezuri(20g) :\n23. Momiji oroshi : 1 btl\n\n*BMG*✅\nSUSHI (PNG)\n\n1) Kumbuji Hirame :15 pkt\n2) Tsubugai sliced :30 pkt\n3) Shime Kohada :10 pkt\n4) Engawa (500g) :40 pkt\n5) Wasabi ko : 15 pkt\n6) Shiro torigai:\n\n(GST)✅\nSUSHI (PNG)\n\n1. Nama Hotate :10 box\n2. Managatsuo :\n3. lkura (500g) :\n4. Akagai :\n5. Amaebi :\n\n*FOODAY*\nSUSHI (PNG)\n\n🥑 Avocado\n‎* Outlet: PNG\n‎* Quantity: \n‎* Ripe or Raw:  All ripe\n‎* Delivery on :(00/0/00)\n\n‎🥭 *Mango*\n‎* Outlet: PNG\n‎* Quantity:\n‎* Ripe or Raw:  all ripe\n‎* Delivery on :(00/0/00)\n‎* Delivery on :\n\n*UGS*\nSUSHI (PNG)\n\n1) CPE HAND GLOVE (5box) :\n2) Kitchen Towel) (BDL) :\n3) Garbage bag (BDL) :\n4) MINI GAS (28BTL/CTN) :\n5) Orange Plastic Bag (10pkt):\n6) CAP GEAR  5\"\" X 8\"\" (5pkt):\n\nWAGYU(PNG)\n1) Wagyu Striploin:\n2) Wagyu Sliced:\n\n*FOODAY*✅\nSUSHI (PNG)\n\n1) Edible flower :3 pkt\n\nCENTRAL KITCHEN\nSUSHIBAR (PNG)\n\n1) Fried Leeks :\n2) Unagi :\n3) Sushi Ebi :\n4) Tuna Salad :\n5) Spicy Sauce :\n6) Honeylemon Sauce :\n7) Volcano Sauce :\n8) Sushi Shoyu :\n9) Shitake Ni :\n10) Black Rice Sauce :\n11) Truffle Butter:\n12) UO Shoyu:\n13) Chicken floss :\n14) Wasabi Dressing :\n15) Rice Paper :\n16) Sea Salt :\n17) Crystal Wrap:\n18) Leed Towel:\n"},"balance":{"Monday":"Not need checking\n","Tuesday":"*(PNG)*\n*UO SHIN*\n*SUSHI BAR* Balance \nName :\nDate :\n\n*WAGYU(PNG)*\n1) Wagyu Striploin:\n2) Wagyu Sliced:\n\nSUSHI (PNG)\n1) Edible flower :\n","Wednesday":"*(PNG)*\n*UO SHIN*\n*SUSHI BAR* Balance \nName :\nDate :\n\n*XENKA(PNG)*\n1) Maguro:\n2) Tobiko :\n3) Ikura (500g) :\n4) Mongo ika :\n5) Kani stick gold :\n6) Snow crab :\n7) Sasa leaf :\n8) Hamachi Fillet :\n9) Sakura dembu :\n10) Tako :\n11) Halfcut  Nori :\n12) Ao Noriko:\n13) Inari :\n14) La-Yu:\n\n*GST(PNG)*\n1) Nama Hotate:\n2. Managatsuo :\n\n*FOODAY(PNG)*\n1) Avocado:\n2) Mango :\n\nSUSHI (PNG)\n1) Edible flower :\n\nCENTRAL KITCHEN\nSUSHIBAR (PNG)\n\n1) Fried Leeks :\n2) Unagi :\n3) Sushi Ebi :\n4) Tuna Salad :\n5) Spicy Sauce :\n6) Honeylemon Sauce :\n7) Volcano Sauce :\n8) Sushi Shoyu :\n9) Shitake Ni :\n10) Black Rice Sauce :\n11) Truffle Butter:\n12) UO Shoyu:\n13) Chicken floss :\n14) Wasabi Dressing :\n15) Rice Paper :\n16) Sea Salt :\n17) Crystal Wrap:\n18) Leed Towel:\n","Thursday":"Not need checking \n","Friday":"Not need checking \n","Saturday":"*(PNG)*\n*UO SHIN*\n*SUSHI BAR* Balance\nName :\nDate :\n\n*XENKA(PNG)*\n1) Maguro:\n2) Tobiko :\n3) Ikura (500g) :\n4) Mongo ika :\n5) Kani stick gold :\n6) Snow crab :\n7) Sasa leaf :\n8) Hamachi Fillet :\n9) Sakura dembu :\n10) Tako :\n11) Halfcut  Nori :\n12) Ao Noriko:\n13) Inari :\n14) La-Yu:\n\n*FOOTAH(PNG)*\n1) 1/2 shell abalone:\n2) Foie gras 25/40:\n\n*LHS(PNG)*\n1) Sushi gari :\n2) Takuan:\n3) Lobster Salad:\n4) Boten Ebi:\n5) Ama Ebi:\n6) Shiro torigai :\n8) Whole Shell Oyster:0 pkt\n\n*TOHO(PNG)*\n1) Natto(1set/3box) :\n\n*SENRI(PNG)*\n1) Katsuo Tataki:\n2)  Kinjirushi kizami Wasabi (250gm):\n3) Ni Anago Hiraki :\n4) Akagai :\n5) Yuzu kosho(S):\n6) JPN yuzu ko(S):\n7) Aori Ika(5-7pcs):\n8) kizami yuzu :\n9) Mizkan pon bottlezu(1.8l):\n10) Saikyo Miso 1kg :\n11) Ohba leaves (100)pcs:\n12) Itokezuri(20g):\n13) Shio kombu:\n14) Goma oil:\n15) Konbu Tsuyu:\n\n*BMG(PNG)*\n1) Kumbuji hirame(yekikepl):\n2) Tsubugai sliced:\n3) Shime Kohada:\n4) Engawa (500g):\n5) Wasabi ko :\n\n*GST(PNG)*\n1) Nama Hotate:\n\nSUSHI (PNG)\n1) Edible flower :","Sunday":"*(PNG)*\n*UO SHIN*\n*SUSHI BAR* Balance\nName : \nDate : \n\n*UGS (PNG)*\n1) CPE HAND GLOVE (6box) :\n2) Kitchen Towel) (BDL) :\n3) Garbage bag (BDL) :\n4) MINI GAS (28BTL/CTN) :\n5) Orange Plastic Bag (X):\n\"6) CAP GEAR  5\"\" X 8\"\" (5pkt):\"\n\n*GST(PNG)*\n1. Managatsuo :\n\n*FOODAYPNG)*\n1. Edible flower :\n\nCENTRAL KITCHEN\nSUSHIBAR (PNG)\n\n1) Fried Leeks :\n2) Unagi :\n3) Sushi Ebi :\n4) Tuna Salad :\n5) Spicy Sauce :\n6) Honeylemon Sauce :\n7) Volcano Sauce :\n8) Sushi Shoyu :\n9) Shitake Ni :\n10) Black Rice Sauce :\n11) Truffle Butter:\n12) UO Shoyu:\n13) Chicken floss :\n14) Wasabi Dressing :\n15) Rice Paper :\n16) Sea Salt :\n17) Crystal Wrap:\n18) Leed Towel:\n"},"order":"PNG\nDATE:\n\nXENKA\nSUSHI (PNG)\n\n1) Maguro :\n2) Tobiko :\n3) Ikura (500g) :\n4) Mongo ika :\n5) Kani stick gold :\n6) Snow crab :\n7) Sasa leaf :\n8) Hamachi Fillet :\n9) Sakura dembu :\n10) Tako :\n11) Halfcut  Nori :\n12) Ao Noriko :\n13) Inari :\n14) La-Yu:\n\n*FOOTAH*\nSUSHI (PNG)\n1) 1/2 shell abalone :\n2) Foie gras 25/40 :\n\n*LHS*\nSUSHI (PNG)\n\n1) Sushi gari :\n2) Takuan:\n3) Lobster Salad :\n4) Boten Ebi :\n5) Ama Ebi :\n6) Shiro torigai :\n7) Yuzu Kosho:\n8) Whole Shell Oyster:\n\n*TOHO*\nSUSHI (Uo Shin PNG)\n\n1) Natto(1set/3box) :\n\n*SENRI*\nSUSHI (PNG)\n\n1. Katsuo Tataki :\n2)  Kinjirushi Kizami Wasabi (250gm) :\n3. Ni Anago Hiraki :\n4. Frozen akagai :\n5. Kizami Yuzu :\n6. Aori Ika (5-7pCs) :\n7. Nama Toro 1 Ban Won(5-6kg) :\n8. Ohba leaf 100pcs :\n9. Goma Oil :\n10. Kombu Tsuyu :\n11. JPN Yuzu Ko :\n12. Saikyo Miso :\n13. Ito Kezuri :\n14. shio konbu :\n15. Mizkan Ponzu sauce :\n16. Amaebi :\n17. Botan ebi :\n18. Uni100g :\n19. Shiro torigai :\n20. Negitoro :\n21. Natto 00789 :\n22. Itokezuri(20g) :\n23. Momiji oroshi :\n\n*BMG*\nSUSHI (PNG)\n\n1) Kumbuji Hirame :\n2) Tsubugai sliced :\n3) Shime Kohada :\n4) Engawa (500g) :\n5) Wasabi ko :\n6) Shiro torigai:\n\nGST (PNG)\nSUSHI (PNG)\n\n1. Nama Hotate :\n2. Managatsuo :\n3. lkura (500g) :\n4. Akagai :\n5. Amaebi :\n\n*FOODAY*\nSUSHI (PNG)\n\n🥑 Avocado\n‎* Outlet: PNG\n‎* Quantity: \n‎* Ripe or Raw:\n‎* Delivery on :\n\n‎🥭 *Mango*\n‎* Outlet: PNG\n‎* Quantity: \n‎* Ripe or Raw:\n‎* Delivery on :\n\n*UGS*\nSUSHI (PNG)\n\n1) CPE HAND GLOVE (5box) :\n2) Kitchen Towel) (BDL) :\n3) Garbage bag (BDL) :\n4) MINI GAS (28BTL/CTN) :\n5) Orange Plastic Bag (10pkt):\n6) CAP GEAR  5\" X 8\" (5pkt):\n\n*WAGYU*\nSUSHI (Uo Shin PNG)\n\n1) Wagyu Striploin:\n2) Wagyu Sliced:\n\n*FOODAY*\nSUSHI (PNG)\n\n1) Edible flower :\n\nCENTRAL KITCHEN\nSUSHIBAR (PNG)\nDate:\n\n1) Fried Leeks :\n2) Unagi :\n3) Sushi Ebi :\n4) Tuna Salad :\n5) Spicy Sauce :\n6) Honeylemon Sauce :\n7) Volcano Sauce :\n8) Sushi Shoyu :\n9) Shitake Ni :\n10) Black Rice Sauce :\n11) Truffle Butter:\n12) UO Shoyu:\n13) Chicken floss :\n14) Wasabi Dressing :\n15) Rice Paper :\n16) Sea Salt :\n","schedule":{"XENKA":"Sunday order - Wednesday Delivery / Thursday order- Saturday Delivery","FOOTAH":"Sunday Order - Monday Delivery","LHS":"Sunday Order - Wednesday Delivery","TOHO":"Sunday Order - Wednesday Delivery","SENRI":"Sunday Order - Tuesday Delivery","BMG":"Sunday Order - Wednesday Delivery","GST":"Sunday Order - Tuesday Delivery","FOODAY":"Thursday Order - Tuesday & Friday Delivery","WAGYU":"Wednesday Order - Friday Delivery","CENTRAL KITCHEN":"Monday Order - Tuesday Delivery\nThursday Order - Friday Delivery"},"standbyMin":{"wafudressingsauce":"0","gomasaladsauce":"0","hiyashisobasauce":"0","awabi":"3","bolingspaingonion":"0.2","hirami":"2","shimaaji":"2","madtai":"2","nigitoroleek":"0.2","nigitorotakuan":"0.3","botanebi":"0.5","amaebi":"0.3","nigitoro":"2","anagonigiri":"10","anagoyuzu":"20","foiegras":"0.2","wagyunigiri":"2","wagyusliced":"3","mango":"4","tako":"0.3","torigai":"1","tamanegiwasabi":"0","momijioroshisauce":"0","spaingonion":"4","onion":"2","leek":"0","soygarlicsauce":"0.2","obaleaf":"0.4","sumisosauce":"0.3","yuzumiso":"0","sabasauce":"0","ebisauce":"0.3","takosusauce":"0","hamachi":"10","tatarsauce":"3"},"salmon":"UO SHIN \nOutlet : PNG 1 \nName: \nDate : \n\nBalance\n1. Salmon:  1 pkt\n2. Salmon Belly: 1 pkt\n3. Hirame: 1 nos 2 pkt\n4. Shima-Aji:  2 nos 3 pkt\n5. Tai:  0 nos 1 pkt","items":"*Outlet:* PNG\nBalance\n1. Spoungee: 0 pkt\n2. Fire Gun: 0 pkt\n3. Digital Timer: 0 pcs\n4. Maki Su: 0 pkt\n5. Nori Box Lamp Bulb: 0 pcs\n6. Sauce brush: 0 pcs\n7. Bamboo mini brush: 0 pcs\n8. Coconut Brush:  0 pcs\n9. Fish bone tweezer: 0 pcs\n10. Morning White Towel: 0 pcs\n11. Rice White towel: 0 pcs\n12. Blue  towel: 0 pcs\n13. Green  towel: 0 pcs\n14. Orange  towel: 0 pcs\n15. Brown  towel: 0 pcs\n16. Wooden Chopsticks 45cm: 0 Set","itemsMin":{"spoungee":"1","firegun":"1","digitaltimer":"1","makisu":"1","noriboxlampbulb":"3","saucebrush":"1","bamboominibrush":"1","coconutbrush":"2","fishbonetweezer":"1","morningwhitetowel":"3","ricewhitetowel":"1","bluetowel":"1","greentowel":"1","orangetowel":"1","browntowel":"1","woodenchopsticks45cm":"0"}}},"tx":{},"editors":[],"viewers":["kyawhtetaung182024@gmail.com"]}</script>
+<script id="main">
+(function(){
+  if (!Element.prototype.replaceChildren){
+    Element.prototype.replaceChildren = function(){ while (this.firstChild) this.removeChild(this.firstChild); for (var i = 0; i < arguments.length; i++) this.appendChild(typeof arguments[i] === 'string' ? document.createTextNode(arguments[i]) : arguments[i]); };
+  }
+  var R = JSON.parse(document.getElementById('state').textContent);
+  var OKEYS = ['standby','minmax','balance','order','schedule','standbyMin','salmon','items','itemsMin'];
+  var ITEMS_DEFAULT = ['*Outlet:* PNG','Balance','1. Spoungee: 0 pkt','2. Fire Gun: 0 pkt','3. Digital Timer: 0 pcs','4. Maki Su: 0 pkt','5. Nori Box Lamp Bulb: 0 pcs','6. Sauce brush: 0 pcs','7. Bamboo mini brush: 0 pcs','8. Coconut Brush:  0 pcs','9. Fish bone tweezer: 0 pcs','10. Morning White Towel: 0 pcs','11. Rice White towel: 0 pcs','12. Blue  towel: 0 pcs','13. Green  towel: 0 pcs','14. Orange  towel: 0 pcs','15. Brown  towel: 0 pcs','16. Wooden Chopsticks 45cm: 0 Set'].join('\n');
+  var SALMON_DEFAULT = 'UO SHIN \nOutlet : PNG \nName: \nDate : \n\nBalance\n1. Salmon:  1 pkt\n2. Salmon Belly: 1 pkt\n3. Hirame: 1 nos 2 pkt\n4. Shima-Aji:  2 nos 3 pkt\n5. Tai:  0 nos 1 pkt';
+  if (!R.outlets){
+    R.outlets = ['PNG']; R.data = {PNG:{}};
+    OKEYS.forEach(function(k){ if (R[k] !== undefined){ R.data.PNG[k] = R[k]; delete R[k]; } });
+  }
+  R.tx = R.tx || {}; R.bg = R.bg || ''; R.editors = R.editors || []; R.viewers = R.viewers || [];
+  R.outlets.forEach(function(o){
+    var d = R.data[o] = R.data[o] || {};
+    d.standbyMin = d.standbyMin || {}; d.salmon = d.salmon || SALMON_DEFAULT; d.items = d.items || ITEMS_DEFAULT; d.itemsMin = d.itemsMin || {};
+    d.minmax = d.minmax || {}; d.balance = d.balance || {}; d.schedule = d.schedule || {};
+    d.order = d.order || ''; d.standby = d.standby || '';
+  });
+  var CUR = {name:null};
+  var S = {};
+  OKEYS.forEach(function(k){
+    Object.defineProperty(S, k, {enumerable:true,
+      get:function(){ return CUR.name ? R.data[CUR.name][k] : (k === 'standbyMin' || k === 'itemsMin' || k === 'minmax' || k === 'balance' || k === 'schedule' ? {} : ''); },
+      set:function(v){ if (CUR.name) R.data[CUR.name][k] = v; }});
+  });
+  ['tx','bg'].forEach(function(k){ Object.defineProperty(S, k, {enumerable:true, get:function(){ return R[k]; }, set:function(v){ R[k] = v; }}); });
+  var app = document.getElementById('app');
+  var DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  function supsNow(){ return Object.keys(S.schedule); }
+  var ctx = { plat:false, isOwner:false, email:'', shareMode:'', ready:false, accLevel:'view', shareOutlet:'', shareEmail:'', shareSel:{}, shareMsg:'', artifact:null, comments:null, editing:false, status:'', err:false };
+
+
+  function slug0(s){ return s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
+  function oid(name){
+    var s = slug0(name); if (s) return s;
+    var h = 0; for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+    return 'x' + h.toString(36);
+  }
+  function editorEntry(){
+    var e = (ctx.email || '').toLowerCase(); if (!e) return null;
+    return (R.editors || []).filter(function(x){ return String(x.email).toLowerCase() === e; })[0] || null;
+  }
+  function editorOutlets(){ var en = editorEntry(); return en ? en.outlets.filter(function(o){ return R.outlets.indexOf(o) >= 0; }) : []; }
+  Object.defineProperty(ctx, 'canEdit', {
+    get:function(){
+      if (!ctx.plat) return false;
+      if (ctx.isOwner) return true;
+      if (!editorEntry()) return true;
+      return !!(CUR.name && editorOutlets().indexOf(CUR.name) >= 0);
+    },
+    set:function(v){ if (!v) ctx.plat = false; }
+  });
+
+  var LANGS = [['my','မြန်မာ','my'],['en','English','en'],['ne','नेपाली','ne'],['zh','中文','zh-Hans']];
+  var T = {
+    lowest:{en:'Lowest Degree',my:'အနည်းဆုံးအဆင့်',ne:'न्यूनतम स्तर',zh:'最低量'},
+    lowestsub:{en:'Set the minimum quantity',my:'အနည်းဆုံးပမာဏ သတ်မှတ်ရန်',ne:'न्यूनतम मात्रा तोक्नुहोस्',zh:'设定最低数量'},
+    balchk:{en:'Balance Checking',my:'လက်ကျန်စစ်ဆေးခြင်း',ne:'बाँकी जाँच',zh:'余量检查'},
+    balchksub:{en:'Enter balance and copy',my:'လက်ကျန်ဖြည့်ပြီး ကူးယူရန်',ne:'बाँकी भरेर प्रतिलिपि',zh:'填写余量并复制'},
+    lowesthint:{en:'Items at or below this number are marked 🔴🔴.',my:'ဒီအရေအတွက်နဲ့ ညီ သို့မဟုတ် နည်းရင် 🔴🔴 ပြပါမယ်။',ne:'यो संख्या वा कमभए 🔴🔴 देखिन्छ।',zh:'等于或低于此数量时会显示 🔴🔴。'},
+    lowestro:{en:'Only the owner can change these numbers.',my:'ဒီဂဏန်းတွေကို Owner ပဲ ပြင်လို့ရပါတယ်။',ne:'यी संख्या मालिकले मात्र परिवर्तन गर्न सक्छन्।',zh:'仅所有者可以修改这些数字。'},
+    name:{en:'Name',my:'အမည်',ne:'नाम',zh:'姓名'},
+    date:{en:'Date',my:'ရက်စွဲ',ne:'मिति',zh:'日期'},
+    fill:{en:'Enter balance',my:'လက်ကျန် ဖြည့်ရန်',ne:'बाँकी भर्नुहोस्',zh:'填写余量'},
+    clear:{en:'Clear entries',my:'ဖြည့်ထားတာ ဖျက်ရန်',ne:'प्रविष्टि मेटाउनुहोस्',zh:'清除填写'},
+    cleararm:{en:'Tap again to clear all',my:'အားလုံးဖျက်ရန် ထပ်နှိပ်ပါ',ne:'सबै मेटाउन फेरि थिच्नुहोस्',zh:'再点一次清除全部'},
+    devnote:{en:'Your entries are saved on this device only.',my:'ဖြည့်ထားတာကို ဒီဖုန်းထဲမှာပဲ သိမ်းထားပါတယ်။',ne:'तपाईंका प्रविष्टि यही उपकरणमा मात्र सुरक्षित हुन्छन्।',zh:'填写内容仅保存在本设备上。'},
+    autoorder:{en:'Auto order',my:'အလိုအလျောက် မှာရမည့်အရေအတွက်',ne:'स्वचालित अर्डर',zh:'自动订货量'},
+    formula:{en:'Order = Min-Max − Balance',my:'မှာရန် = Min-Max − လက်ကျန်',ne:'अर्डर = Min-Max − बाँकी',zh:'订货量 = 定量 − 余量'},
+    orderday:{en:'Order day',my:'မှာမည့်နေ့',ne:'अर्डर दिन',zh:'订货日'},
+    item:{en:'Item',my:'ပစ္စည်း',ne:'वस्तु',zh:'品名'},
+    minmaxs:{en:'Min-Max',my:'Min-Max',ne:'Min-Max',zh:'定量'},
+    bal:{en:'Balance',my:'လက်ကျန်',ne:'बाँकी',zh:'余量'},
+    orders:{en:'Order',my:'မှာရန်',ne:'अर्डर',zh:'订货'},
+    notcounted:{en:'{n} items not counted yet',my:'လက်ကျန် မဖြည့်ရသေးသော ပစ္စည်း {n} ခု',ne:'{n} वस्तुको बाँकी भरिएको छैन',zh:'还有 {n} 项未填写余量'},
+    noorderday:{en:'No order on this day.',my:'ဒီနေ့ မမှာရပါ။',ne:'यो दिन अर्डर छैन।',zh:'当天无需订货。'},
+    copyorder:{en:'Copy order',my:'မှာယူစာ ကူးရန်',ne:'अर्डर प्रतिलिपि',zh:'复制订货单'},
+    title:{en:'Sushi bar Ordering',my:'Sushi bar Ordering',ne:'Sushi bar Ordering',zh:'Sushi bar Ordering'},
+    minmax:{en:'Storage Mini Max',my:'သိုလှောင်မှု အနည်းဆုံး–အများဆုံး',ne:'भण्डारण न्यूनतम–अधिकतम',zh:'库存最低/最高量'},
+    balance:{en:'Storage Balance Checking',my:'သိုလှောင်ခန်း လက်ကျန်စစ်ဆေးခြင်း',ne:'भण्डारण बाँकी जाँच',zh:'库存余量检查'},
+    order:{en:'Order',my:'မှာယူခြင်း',ne:'अर्डर',zh:'订货'},
+    schedule:{en:'Ordering Schedule',my:'မှာယူချိန်ဇယား',ne:'अर्डर तालिका',zh:'订货时间表'},
+    standby:{en:'Daily Standby Checking',my:'နေ့စဉ် Standby စစ်ဆေးခြင်း',ne:'दैनिक स्ट्यान्डबाई जाँच',zh:'每日备货检查'},
+    week:{en:'Monday to Sunday',my:'တနင်္လာမှ တနင်္ဂနွေအထိ',ne:'सोमबारदेखि आइतबारसम्म',zh:'周一至周日'},
+    blank:{en:'Blank order sheet',my:'အလွတ် မှာယူစာရွက်',ne:'खाली अर्डर पाना',zh:'空白订货单'},
+    suppliers:{en:'{n} suppliers',my:'ပေးသွင်းသူ {n} ဦး',ne:'{n} आपूर्तिकर्ता',zh:'{n} 家供应商'},
+    salmon:{en:'Daily inspection of salmon fillets',my:'ဆယ်လမွန်ဖယ်လီ နေ့စဉ်စစ်ဆေးခြင်း',ne:'साल्मन फिलेको दैनिक निरीक्षण',zh:'三文鱼片每日检查'},
+    salmonsub:{en:'Balance list',my:'လက်ကျန်စာရင်း',ne:'बाँकी सूची',zh:'余量清单'},
+    bgadd:{en:'Add background image',my:'နောက်ခံပုံ ထည့်ရန်',ne:'पृष्ठभूमि तस्विर थप्नुहोस्',zh:'添加背景图'},
+    bgchange:{en:'Change background image',my:'နောက်ခံပုံ ပြောင်းရန်',ne:'पृष्ठभूमि तस्विर बदल्नुहोस्',zh:'更换背景图'},
+    bgremove:{en:'Remove background',my:'နောက်ခံပုံ ဖယ်ရန်',ne:'पृष्ठभूमि हटाउनुहोस्',zh:'移除背景图'},
+    bgbusy:{en:'Preparing image…',my:'ပုံကို ပြင်ဆင်နေသည်…',ne:'तस्विर तयार गर्दै…',zh:'正在处理图片…'},
+    bgbad:{en:'Could not read that image.',my:'ပုံကို ဖတ်မရပါ။',ne:'तस्विर पढ्न सकिएन।',zh:'无法读取该图片。'},
+    lbtn:{en:'Edit all text',my:'စာသားအားလုံး ပြင်ရန်',ne:'सबै पाठ सम्पादन',zh:'编辑所有文字'},
+    lpage:{en:'Edit titles and text',my:'ခေါင်းစဉ်နှင့် စာသားများ ပြင်ရန်',ne:'शीर्षक र पाठ सम्पादन',zh:'编辑标题和文字'},
+    lhint:{en:'You are editing the text of the language selected above. Switch language to edit the others. Keep {n} where it appears.',my:'အပေါ်မှာ ရွေးထားတဲ့ ဘာသာစကားရဲ့ စာသားကို ပြင်နေပါတယ်။ တခြားဘာသာ ပြင်ချင်ရင် ဘာသာစကား ပြောင်းပါ။ {n} ပါရင် မဖျက်ပါနဲ့။',ne:'माथि चयन गरिएको भाषाको पाठ सम्पादन गर्दै हुनुहुन्छ। अरू भाषा सम्पादन गर्न भाषा बदल्नुहोस्। {n} भएमा नहटाउनुहोस्।',zh:'您正在编辑上方所选语言的文字。切换语言可编辑其他语言。出现 {n} 的地方请保留。'},
+    lreset:{en:'Reset this language to default',my:'ဒီဘာသာစကားကို မူလအတိုင်း ပြန်ထားရန်',ne:'यो भाषा पूर्वनिर्धारितमा फर्काउनुहोस्',zh:'将此语言恢复默认'},
+    lday:{en:'Day names',my:'နေ့အမည်များ',ne:'दिनका नाम',zh:'星期名称'},
+    lsup:{en:'Supplier names (all languages)',my:'ပေးသွင်းသူ အမည်များ (ဘာသာအားလုံး)',ne:'आपूर्तिकर्ताका नाम (सबै भाषा)',zh:'供应商名称（所有语言）'},
+    ltext:{en:'Titles and labels',my:'ခေါင်းစဉ်နှင့် စာသားများ',ne:'शीर्षक र लेबल',zh:'标题和标签'},
+    pickoutlet:{en:'Select outlet',my:'ဆိုင်ကို ရွေးပါ',ne:'आउटलेट छान्नुहोस्',zh:'请选择门店'},
+    outletback:{en:'Outlets',my:'ဆိုင်များ',ne:'आउटलेटहरू',zh:'门店'},
+    outletname:{en:'New outlet name',my:'ဆိုင်အမည်အသစ်',ne:'नयाँ आउटलेटको नाम',zh:'新门店名称'},
+    outletadd:{en:'Add outlet',my:'ဆိုင်ထည့်ရန်',ne:'आउटलेट थप्नुहोस्',zh:'添加门店'},
+    outletnote:{en:'A new outlet starts as a copy of the first outlet. Edit its lists afterwards.',my:'ဆိုင်အသစ်ကို ပထမဆိုင်ရဲ့ စာရင်းအတိုင်း ကူးပြီး စပါမယ်။ ပြီးမှ စာရင်းတွေကို ပြင်ပါ။',ne:'नयाँ आउटलेट पहिलो आउटलेटको प्रतिलिपिबाट सुरु हुन्छ। पछि सूची सम्पादन गर्नुहोस्।',zh:'新门店以第一家门店的清单为模板，之后可自行修改。'},
+    outletdel:{en:'Delete outlet',my:'ဆိုင်ဖျက်ရန်',ne:'आउटलेट मेटाउनुहोस्',zh:'删除门店'},
+    outletdelarm:{en:'Tap again to delete',my:'ဖျက်ရန် ထပ်နှိပ်ပါ',ne:'मेटाउन फेरि थिच्नुहोस्',zh:'再点一次删除'},
+    outletdup:{en:'That outlet already exists.',my:'ဒီဆိုင်အမည် ရှိပြီးသားပါ။',ne:'यो आउटलेट पहिले नै छ।',zh:'该门店已存在。'},
+    sharetitle:{en:'Share view link',my:'ကြည့်ရန် Link ဝေမျှရန်',ne:'हेर्ने लिङ्क साझा गर्नुहोस्',zh:'分享查看链接'},
+    sharehint:{en:'Anyone you send this link to can open the page, once the owner has turned on sharing.',my:'ဒီ Link ကို ပို့ထားသူတွေ ဖွင့်ကြည့်နိုင်ပါတယ်။ (Owner က Share ဖွင့်ပေးထားမှ ရပါမယ်)',ne:'मालिकले साझा गर्ने सेटिङ खोलेपछि यो लिङ्क पठाएका जो कोहीले पेज खोल्न सक्छन्।',zh:'所有者开启分享后，收到此链接的人即可打开页面。'},
+    sharebtn:{en:'Share',my:'Share',ne:'साझा गर्नुहोस्',zh:'分享'},
+    shareview:{en:'View',my:'View (ကြည့်ရန်)',ne:'हेर्न',zh:'查看'},
+    shareedit:{en:'Edit',my:'Edit (ပြင်ခွင့်)',ne:'सम्पादन',zh:'编辑'},
+    shareclose:{en:'Close',my:'ပိတ်ရန်',ne:'बन्द',zh:'关闭'},
+    sharepick:{en:'Choose the outlet to share',my:'ပို့မယ့်ဆိုင်ကို ရွေးပါ',ne:'साझा गर्ने आउटलेट छान्नुहोस्',zh:'选择要分享的门店'},
+    sharewa:{en:'Send via WhatsApp',my:'WhatsApp နဲ့ ပို့ရန်',ne:'WhatsApp मार्फत पठाउनुहोस्',zh:'通过 WhatsApp 发送'},
+    sharecopied:{en:'Copied',my:'ကူးပြီး',ne:'कपी भयो',zh:'已复制'},
+    viewmsg:{en:'View only',my:'ကြည့်ရန်သာ',ne:'हेर्न मात्र',zh:'仅查看'},
+    editmsg:{en:'You can edit',my:'ပြင်ခွင့်ပေးထားသည်',ne:'सम्पादन गर्न सकिन्छ',zh:'可编辑'},
+    gmail:{en:'Gmail address',my:'Gmail လိပ်စာ',ne:'Gmail ठेगाना',zh:'Gmail 地址'},
+    allow:{en:'Allow',my:'ခွင့်ပြုရန်',ne:'अनुमति दिनुहोस्',zh:'允许'},
+    editors:{en:'People with access',my:'ဝင်ခွင့်ရှိသူများ',ne:'पहुँच भएकाहरू',zh:'有权限的人'},
+    remove:{en:'Remove',my:'ဖယ်ရန်',ne:'हटाउनुहोस्',zh:'移除'},
+    editnote:{en:'This Gmail can edit only the outlets you tick. They must also be added as an Editor in this page\'s own Share menu, and sign in with that Gmail.',my:'ဒီ Gmail က သင်ရွေးထားတဲ့ဆိုင်ကိုပဲ ပြင်နိုင်ပါမယ်။ ဒီ Page ရဲ့ Share menu မှာလည်း Editor အဖြစ် ထည့်ပေးပြီး အဲဒီ Gmail နဲ့ ဝင်ထားရပါမယ်။',ne:'यो Gmail ले तपाईंले चिन्ह लगाएको आउटलेट मात्र सम्पादन गर्न सक्छ। यस पृष्ठको Share मेनुमा पनि Editor थप्नुपर्छ र सोही Gmail बाट साइन इन गर्नुपर्छ।',zh:'该 Gmail 只能编辑您勾选的门店。还需在本页的分享菜单中将其添加为编辑者，并使用该 Gmail 登录。'},
+    bademail:{en:'Enter a valid Gmail address and tick at least one outlet.',my:'Gmail လိပ်စာမှန်အောင်ထည့်ပြီး ဆိုင်တစ်ဆိုင်အနည်းဆုံး ရွေးပါ။',ne:'मान्य Gmail ठेगाना राख्नुहोस् र कम्तीमा एउटा आउटलेट चिन्ह लगाउनुहोस्।',zh:'请输入有效的 Gmail 地址并至少勾选一家门店。'},
+    openlink:{en:'Please open the link that was sent to you.',my:'ပို့ပေးထားတဲ့ Link ကို နှိပ်ပြီး ဝင်ပါ။',ne:'तपाईंलाई पठाइएको लिङ्क खोल्नुहोस्।',zh:'请打开发给您的链接。'},
+    accessbtn:{en:'Approve access',my:'ဝင်ခွင့်ပြုရန်',ne:'पहुँच स्वीकृत गर्नुहोस्',zh:'批准访问'},
+    gatetitle:{en:'Permission needed',my:'ခွင့်ပြုချက် လိုအပ်သည်',ne:'अनुमति आवश्यक छ',zh:'需要权限'},
+    gatetext:{en:'Ask the owner for permission to open this page. Tap the button below to send your request.',my:'ဒီ Page ကို ဖွင့်ကြည့်ဖို့ Owner ဆီကနေ ခွင့်တောင်းရပါမယ်။ အောက်ကခလုပ်ကို နှိပ်ပြီး တောင်းဆိုပါ။',ne:'यो पृष्ठ खोल्न मालिकसँग अनुमति माग्नुहोस्। तलको बटन थिचेर अनुरोध पठाउनुहोस्।',zh:'请向所有者申请打开此页面的权限。点击下方按钮发送申请。'},
+    gateyou:{en:'Your Gmail',my:'သင့် Gmail',ne:'तपाईंको Gmail',zh:'您的 Gmail'},
+    gatenomail:{en:'Your Gmail is not visible to this page. Sign in to claude.ai with your Gmail and open the link again.',my:'ဒီ Page က သင့် Gmail ကို မမြင်ရပါဘူး။ claude.ai ကို သင့် Gmail နဲ့ ဝင်ပြီး Link ကို ပြန်ဖွင့်ပါ။',ne:'यो पृष्ठले तपाईंको Gmail देख्न सक्दैन। आफ्नो Gmail बाट claude.ai मा साइन इन गरी लिङ्क फेरि खोल्नुहोस्।',zh:'此页面无法看到您的 Gmail。请用您的 Gmail 登录 claude.ai 后重新打开链接。'},
+    loading:{en:'Loading…',my:'ဖွင့်နေသည်…',ne:'लोड हुँदैछ…',zh:'加载中…'},
+    reqaccess:{en:'Request access',my:'ဝင်ခွင့် တောင်းရန်',ne:'पहुँच अनुरोध गर्नुहोस्',zh:'申请访问'},
+    sendbal:{en:'Send Balance',my:'Send Balance',ne:'बाँकी पठाउनुहोस्',zh:'发送余量'},
+    sharetext:{en:'Send Order',my:'Send Order',ne:'अर्डर पठाउनुहोस्',zh:'发送订单'},
+    items:{en:'Item Storage',my:'Item Storage',ne:'Item Storage',zh:'Item Storage'},
+    itemssub:{en:'Lowest Degree · Balance',my:'Lowest Degree · လက်ကျန်',ne:'न्यूनतम · बाँकी',zh:'最低量 · 余量'},
+    itbal:{en:'Balance',my:'Balance',ne:'बाँकी',zh:'余量'},
+    itbalsub:{en:'Enter balance and copy',my:'လက်ကျန်ဖြည့်ပြီး ကူးယူ/ပို့ရန်',ne:'बाँकी भरेर प्रतिलिपि',zh:'填写余量并复制'},
+    itordersub:{en:'Once a week, every Monday',my:'တစ်ပတ်တစ်ကြိမ် တနင်္လာနေ့တိုင်း',ne:'हप्तामा एक पटक, हरेक सोमबार',zh:'每周一次，每周一'},
+    itweekly:{en:'This order is placed once a week, every Monday. Items at or below the Lowest Degree are listed.',my:'ဒီ Order ကို တစ်ပတ်ကို တစ်ကြိမ်သာ၊ တနင်္လာနေ့တိုင်း မှာပါမယ်။ Lowest Degree နဲ့ ညီ/နည်းတဲ့ ပစ္စည်းတွေကို ပြထားပါတယ်။',ne:'यो अर्डर हप्तामा एक पटक, हरेक सोमबार गरिन्छ। न्यूनतम स्तर वा कम भएका वस्तुहरू देखाइएका छन्।',zh:'此订单每周一次，每周一下单。列出等于或低于最低量的物品。'},
+    itnone:{en:'No items are at or below the Lowest Degree.',my:'Lowest Degree နဲ့ ညီ/နည်းတဲ့ ပစ္စည်း မရှိပါ။',ne:'न्यूनतम स्तर वा कम भएको वस्तु छैन।',zh:'没有等于或低于最低量的物品。'},
+    itqty:{en:'Order quantity',my:'မှာမည့် ပမာဏ',ne:'अर्डर मात्रा',zh:'订货数量'},
+    sendhelp:{en:'Text copied. If WhatsApp did not open, open WhatsApp and paste it, or tap a link below.',my:'စာသားကို ကူးထားပြီးပါပြီ။ WhatsApp မပွင့်ရင် WhatsApp ဖွင့်ပြီး Paste လုပ်ပါ၊ ဒါမှမဟုတ် အောက်က link ကို နှိပ်ပါ။',ne:'पाठ प्रतिलिपि भयो। WhatsApp नखुलेमा WhatsApp खोलेर पेस्ट गर्नुहोस् वा तलको लिंक थिच्नुहोस्।',zh:'文字已复制。如果 WhatsApp 没有打开，请打开 WhatsApp 粘贴，或点击下方链接。'},
+    sendopen:{en:'Open WhatsApp app',my:'WhatsApp app ဖွင့်ရန်',ne:'WhatsApp एप खोल्नुहोस्',zh:'打开 WhatsApp 应用'},
+    sendopen2:{en:'Open WhatsApp link',my:'WhatsApp link ဖွင့်ရန်',ne:'WhatsApp लिंक खोल्नुहोस्',zh:'打开 WhatsApp 链接'},
+    standbysub:{en:'Standby balance list',my:'Standby လက်ကျန်စာရင်း',ne:'स्ट्यान्डबाई बाँकी सूची',zh:'备货余量清单'},
+    canedit:{en:'You can edit',my:'ပြင်ခွင့်ရှိသည်',ne:'सम्पादन गर्न सकिन्छ',zh:'可编辑'},
+    viewonly:{en:'View only',my:'ကြည့်ခွင့်သာ',ne:'हेर्न मात्र',zh:'仅查看'},
+    back:{en:'Back',my:'နောက်သို့',ne:'पछाडि',zh:'返回'},
+    copy:{en:'Copy',my:'ကူးယူရန်',ne:'प्रतिलिपि',zh:'复制'},
+    copied:{en:'Copied',my:'ကူးပြီးပြီ',ne:'प्रतिलिपि भयो',zh:'已复制'},
+    selected:{en:'Selected: tap Copy in the pop-up menu',my:'ရွေးပြီးပြီ၊ ပေါ်လာတဲ့ menu က Copy ကိုနှိပ်ပါ',ne:'चयन भयो: मेनुमा Copy थिच्नुहोस्',zh:'已选中，请点击弹出菜单中的“复制”'},
+    edit:{en:'Edit',my:'ပြင်ရန်',ne:'सम्पादन',zh:'编辑'},
+    save:{en:'Save',my:'သိမ်းရန်',ne:'सुरक्षित गर्नुहोस्',zh:'保存'},
+    cancel:{en:'Cancel',my:'မလုပ်တော့ပါ',ne:'रद्द गर्नुहोस्',zh:'取消'},
+    editing:{en:'Editing',my:'ပြင်ဆင်နေသည်',ne:'सम्पादन हुँदैछ',zh:'编辑中'},
+    readonly:{en:'Read only',my:'ကြည့်ခွင့်သာ',ne:'हेर्न मात्र',zh:'仅查看'},
+    savedall:{en:'Changes save for everyone',my:'ပြောင်းလဲမှုကို လူတိုင်းအတွက် သိမ်းမည်',ne:'परिवर्तन सबैका लागि सुरक्षित हुन्छ',zh:'更改将为所有人保存'},
+    noorder:{en:'No order',my:'မမှာရ',ne:'अर्डर छैन',zh:'无需订货'},
+    request:{en:'Request edit access',my:'ပြင်ခွင့် တောင်းရန်',ne:'सम्पादन अनुमति माग्नुहोस्',zh:'申请编辑权限'},
+    reqopen:{en:'Write your request in the comment box. The owner will see it.',my:'မှတ်ချက်ဘောက်စ်မှာ သင့်တောင်းဆိုချက်ကို ရေးပါ။ Owner က မြင်ရပါမယ်။',ne:'टिप्पणी बक्समा आफ्नो अनुरोध लेख्नुहोस्। मालिकले देख्नेछन्।',zh:'请在评论框中写下您的申请，所有者会看到。'},
+    reqagain:{en:'Tap the button again to open the comment box.',my:'မှတ်ချက်ဘောက်စ် ဖွင့်ရန် ခလုပ်ကို ထပ်နှိပ်ပါ။',ne:'टिप्पणी बक्स खोल्न बटन फेरि थिच्नुहोस्।',zh:'请再点一次按钮以打开评论框。'},
+    reqnone:{en:'Ask the owner to share edit access with you.',my:'Owner ကို ပြင်ခွင့် ပေးရန် ပြောပါ။',ne:'मालिकलाई सम्पादन अनुमति दिन भन्नुहोस्।',zh:'请联系所有者授予您编辑权限。'},
+    saving:{en:'Saving\u2026',my:'သိမ်းနေသည်…',ne:'सुरक्षित गर्दैछ…',zh:'正在保存…'},
+    saved:{en:'Saved.',my:'သိမ်းပြီးပြီ။',ne:'सुरक्षित भयो।',zh:'已保存。'},
+    nosave:{en:'Saving is not available here.',my:'ဒီမှာ သိမ်းလို့ မရပါ။',ne:'यहाँ सुरक्षित गर्न मिल्दैन।',zh:'此处无法保存。'},
+    conflict:{en:'Someone else saved first. The page is reloading with their version.',my:'တခြားသူ အရင်သိမ်းသွားပါပြီ။ Page ကို သူ့ version နဲ့ ပြန်ဖွင့်နေပါတယ်။',ne:'अरू कसैले पहिले नै सुरक्षित गरे। पृष्ठ उनको संस्करणसँग पुनः लोड हुँदैछ।',zh:'其他人已先保存，页面将重新加载其版本。'},
+    noperm:{en:'You do not have permission to edit.',my:'ပြင်ခွင့် မရှိပါ။',ne:'तपाईंलाई सम्पादन गर्ने अनुमति छैन।',zh:'您没有编辑权限。'},
+    savefail:{en:'Could not save. Try again in a moment.',my:'မသိမ်းနိုင်ပါ။ ခဏနေပြီး ထပ်ကြိုးစားပါ။',ne:'सुरक्षित गर्न सकिएन। केही बेरमा फेरि प्रयास गर्नुहोस्।',zh:'无法保存，请稍后再试。'}
+  };
+  var DAYT = {
+    en:['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'],
+    my:['တနင်္လာ','အင်္ဂါ','ဗုဒ္ဓဟူး','ကြာသပတေး','သောကြာ','စနေ','တနင်္ဂနွေ'],
+    ne:['सोमबार','मंगलबार','बुधबार','बिहीबार','शुक्रबार','शनिबार','आइतबार'],
+    zh:['周一','周二','周三','周四','周五','周六','周日']
+  };
+  function detectLang(){
+    try { var v = localStorage.getItem('pngLang'); if (v && T.title[v]) return v; } catch(e){}
+    var n = ((navigator.language || 'en') + '').toLowerCase();
+    if (n.indexOf('my') === 0) return 'my';
+    if (n.indexOf('ne') === 0) return 'ne';
+    if (n.indexOf('zh') === 0) return 'zh';
+    return 'en';
+  }
+  ctx.lang = detectLang();
+  function t(k, n){ var e = T[k]; var v = (e && (e[ctx.lang] || e.en)) || k; var o = S.tx[k] && S.tx[k][ctx.lang]; if (o) v = o; return n == null ? v : v.replace('{n}', n); }
+  function dayLabel(d){ var i = DAYS.indexOf(d); if (i < 0) return d; var o = S.tx['day' + i] && S.tx['day' + i][ctx.lang]; return o || DAYT[ctx.lang][i]; }
+  function langCode(){ return LANGS.filter(function(l){ return l[0] === ctx.lang; })[0][2]; }
+  function langBar(){
+    var box = el('div', {class:'langs', role:'group', 'aria-label':'Language'});
+    LANGS.forEach(function(l){
+      box.appendChild(el('button', {type:'button', class: l[0] === ctx.lang ? 'primary' : '', lang:l[2], 'aria-pressed': l[0] === ctx.lang ? 'true' : 'false', text:l[1], onclick:function(){
+        ctx.lang = l[0];
+        try { localStorage.setItem('pngLang', l[0]); } catch(e){}
+        render();
+      }}));
+    });
+    return box;
+  }
+
+  function el(tag, props){
+    var n = document.createElement(tag);
+    props = props || {};
+    for (var k in props){
+      if (k === 'text') n.textContent = props[k];
+      else if (k === 'class') n.className = props[k];
+      else if (k.slice(0,2) === 'on') n.addEventListener(k.slice(2), props[k]);
+      else n.setAttribute(k, props[k]);
+    }
+    for (var i = 2; i < arguments.length; i++){
+      var c = arguments[i];
+      if (c == null) continue;
+      n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+    }
+    return n;
+  }
+  function slug(s){ return s.toLowerCase().replace(/\s+/g,'-'); }
+  function tile(href, title, sub, compact, pill){
+    var left = el('div', {}, el('div', {class:'t', text:title}), sub ? el('div', {class:'s', text:sub}) : null);
+    return el('a', {class:'tile' + (compact ? ' compact' : ''), href:href},
+      left, pill ? el('span', {class:'pill', text:pill}) : el('span', {class:'go', 'aria-hidden':'true', text:'→'}));
+  }
+  function crumbs(items){
+    var prev = items[items.length - 2];
+    return el('nav', {class:'crumbs', 'aria-label':'Back'},
+      el('a', {href:prev.href, text:'\u2190 ' + t('back')}));
+  }
+  function badge(){
+    return el('span', {class:'badge' + (ctx.canEdit ? ' edit' : ''), text: ctx.canEdit ? t('canedit') : t('viewonly')});
+  }
+
+  /* ---------- saving ---------- */
+  function buildDoc(){
+    var clone = document.body.cloneNode(true);
+    var ids = {app:1, state:1, main:1};
+    Array.prototype.slice.call(clone.children).forEach(function(c){
+      var ok = /^(TITLE|META|STYLE|LINK)$/.test(c.tagName) || ids[c.id];
+      if (!ok) clone.removeChild(c);
+    });
+    clone.querySelector('#app').replaceChildren();
+    clone.querySelector('#state').textContent = JSON.stringify(R).replace(/</g,'\\u003c');
+    var hs = document.head.querySelector('style');
+    return '<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>' +
+      (hs ? hs.textContent : '') + '</style></head><body>' + clone.innerHTML + '</body></html>';
+  }
+  function save(apply, undo){
+    ctx.status = 'Saving…'; ctx.err = false; apply(); render();
+    var a = ctx.artifact;
+    if (!a){ undo(); ctx.status = 'Saving is not available here.'; ctx.err = true; render(); return; }
+    a.publish(buildDoc()).then(function(){
+      ctx.editing = false; ctx.status = t('saved'); render();
+    }, function(e){
+      undo();
+      var code = e && e.code;
+      if (code === 'conflict') ctx.status = 'Someone else saved first. The page is reloading with their version.';
+      else if (code === 'not_writer' || code === 'not_granted') { ctx.canEdit = false; ctx.editing = false; ctx.status = 'You do not have permission to edit.'; }
+      else ctx.status = 'Could not save. Try again in a moment.';
+      ctx.err = true; render();
+    });
+  }
+
+  /* ---------- copy ---------- */
+  function selectNode(n){
+    var r = document.createRange(); r.selectNodeContents(n);
+    var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+  }
+  function legacyCopy(text){
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;font-size:16px';
+    document.body.appendChild(ta);
+    var ok = false;
+    try { ta.focus(); ta.select(); ta.setSelectionRange(0, text.length); ok = document.execCommand('copy'); } catch(e){}
+    document.body.removeChild(ta);
+    return ok;
+  }
+  function copyFrom(text, pre, btn){
+    var old = btn.textContent;
+    var done = function(msg, ms){ btn.textContent = msg; setTimeout(function(){ btn.textContent = old; }, ms || 1600); };
+    if (legacyCopy(text)){
+      done(t('copied'));
+      try { navigator.clipboard.writeText(text).catch(function(){}); } catch(e){}
+      return;
+    }
+    var settled = false;
+    var fail = function(){ if (settled) return; settled = true; selectNode(pre); done(t('selected'), 5000); };
+    var timer = setTimeout(fail, 900);
+    try {
+      navigator.clipboard.writeText(text).then(function(){
+        if (settled) return; settled = true; clearTimeout(timer); done(t('copied'));
+      }, function(){ clearTimeout(timer); fail(); });
+    } catch(e){ clearTimeout(timer); fail(); }
+  }
+
+  /* ---------- request edit ---------- */
+  function requestBox(anchor){
+    var wrap = el('div', {class:'req'});
+    var msg = el('p', {class:'hint', hidden:'', text:''});
+    var b = el('button', {type:'button', text:t('request'), onclick:function(){
+      if (ctx.comments){
+        ctx.comments.openComposer({element:anchor}).then(function(r){
+          msg.hidden = false;
+          msg.textContent = (r && r.opened === false)
+            ? 'Tap the button again to open the comment box.'
+            : 'Write your request in the comment box. The owner will see it.';
+        }, function(){
+          msg.hidden = false; msg.textContent = t('reqnone');
+        });
+      } else {
+        msg.hidden = false; msg.textContent = t('reqnone');
+      }
+    }});
+    wrap.appendChild(b); wrap.appendChild(msg);
+    return wrap;
+  }
+
+  /* ---------- views ---------- */
+  function sheetView(path, title, getText, setText, viewText){
+    var shown = viewText || getText;
+    var text = getText();
+    var box = el('div', {class:'sheet'});
+    var bar = el('div', {class:'sheet-bar'});
+    var pre;
+    if (ctx.editing && ctx.canEdit){
+      var ta = el('textarea', {class:'txt', id:'editor', spellcheck:'false', 'aria-label':t('edit') + ' ' + title});
+      ta.value = text;
+      var saveBtn = el('button', {type:'button', class:'primary', text:t('save'), onclick:function(){
+        var next = ta.value, prev = getText();
+        if (next === prev){ ctx.editing = false; render(); return; }
+        saveBtn.disabled = true;
+        save(function(){ setText(next); }, function(){ setText(prev); });
+      }});
+      var cancel = el('button', {type:'button', text:t('cancel'), onclick:function(){ ctx.editing = false; ctx.status = ''; render(); }});
+      bar.appendChild(el('span', {class:'note', text:t('editing')}));
+      bar.appendChild(el('div', {class:'btns'}, cancel, saveBtn));
+      box.appendChild(bar); box.appendChild(ta);
+    } else {
+      pre = el('pre', {class:'txt', id:'sheet-text', text:shown()});
+      var copy = el('button', {type:'button', class:'primary', text:t('copy'), onclick:function(){ copyFrom(shown(), pre, copy); }});
+      var onlyEdit = /^(minmax|sch)/.test(path);
+      var btns = el('div', {class:'btns'});
+      if (!onlyEdit){ btns.appendChild(copy); btns.appendChild(shareTextBtn(shown, (path === 'order' || path === 'itemsorder') ? 'sharetext' : 'sendbal')); }
+      if (ctx.canEdit) btns.appendChild(el('button', {type:'button', text:t('edit'), onclick:function(){ ctx.editing = true; ctx.status = ''; render(); }}));
+      bar.appendChild(el('span', {class:'note', text: ctx.canEdit ? t('savedall') : t('readonly')}));
+      bar.appendChild(btns);
+      box.appendChild(bar); box.appendChild(pre);
+    }
+    var out = [box];
+    if (!ctx.canEdit) out.push(requestBox(box));
+    return out;
+  }
+
+
+  /* ---------- auto order: Order = Min-Max - Balance ---------- */
+  var SUPLIST = ['XENKA','FOOTAH','LHS','TOHO','SENRI','BMG','GST','FOODAY','UGS','WAGYU','CENTRALKITCHEN','OUTLET'];
+  var KEYALIAS = {
+    'SENRI|akagai':'SENRI|frozenakagai',
+    'SENRI|ohbaleavespcs':'SENRI|ohbaleaf100pcs',
+    'SENRI|mizkanponbottlezu':'SENRI|mizkanponzusauce',
+    'SENRI|saikyomiso1kg':'SENRI|saikyomiso',
+    'CENTRALKITCHEN|wasabidressing':'CENTRALKITCHEN|wasabidressingsauce'
+  };
+  var ITEM_RE = /^(\s*"?\s*\d+\s*[\)\.]\s*)(.*?)(\s*:\s*)(.*)$/;
+  ctx.orderDay = (new Date().getDay() + 6) % 7;
+  function lsSuffix(){ return !CUR.name || CUR.name === 'PNG' ? '' : '_' + CUR.name; }
+  var BAL = {};
+  function saveBal(){ try { localStorage.setItem('pngBal' + lsSuffix(), JSON.stringify(BAL)); } catch(e){} }
+  function canon(name){
+    return name.toLowerCase().replace(/\([^)]*\)/g,'').replace(/konbu/g,'kombu').replace(/[^a-z0-9]/g,'');
+  }
+  function headerOf(line){
+    var L = line.toUpperCase().replace(/[^A-Z]/g,'');
+    if (!L) return '';
+    for (var i = 0; i < SUPLIST.length; i++){
+      var sp = SUPLIST[i];
+      if (L.indexOf(sp) === 0 && L.length <= sp.length + 3) return sp;
+    }
+    return '';
+  }
+  function supLabel(sp){ return sp === 'CENTRALKITCHEN' ? 'CENTRAL KITCHEN' : (sp === 'OUTLET' ? 'Outlet' : sp); }
+  function scan(text){
+    var sup = '', recs = [];
+    String(text).split('\n').forEach(function(line){
+      var m = line.match(ITEM_RE);
+      if (m){
+        var rest = m[4].replace(/"+\s*$/,'').trim();
+        recs.push({line:line, sup:sup, item:{prefix:m[1], name:m[2], colon:m[3].replace(/\s+$/,''), rest:rest, key:sup + '|' + canon(m[2])}});
+      } else {
+        var h = headerOf(line); if (h) sup = h;
+        recs.push({line:line, sup:sup, item:null});
+      }
+    });
+    return recs;
+  }
+  function qtyOf(rest){
+    var m = rest.match(/^(\d+(?:\.\d+)?)\s*(.*)$/);
+    if (!m) return null;
+    return {n:parseFloat(m[1]), unitRaw:m[2].trim(), unit:m[2].replace(/^\(|\)$/g,'').trim()};
+  }
+  function fmt(n){ return String(Math.round(n * 100) / 100); }
+  function balNum(v){
+    if (v == null) return null;
+    var x = String(v).replace(',', '.').trim();
+    if (!x || isNaN(Number(x))) return null;
+    return Number(x);
+  }
+  function minIndex(){
+    var keys = {}, names = {}, unit = {};
+    DAYS.forEach(function(d){
+      scan(S.minmax[d]).forEach(function(r){
+        if (!r.item) return;
+        var q = qtyOf(r.item.rest); if (!q) return;
+        var k = r.item.key; keys[k] = 1;
+        if (!unit[k] && q.unit) unit[k] = q.unit;
+        var nm = k.split('|')[1];
+        names[nm] = names[nm] || [];
+        if (names[nm].indexOf(k) < 0) names[nm].push(k);
+      });
+    });
+    return {keys:keys, names:names, unit:unit};
+  }
+  function resolveKey(raw, idx){
+    if (KEYALIAS[raw]) raw = KEYALIAS[raw];
+    if (idx.keys[raw]) return raw;
+    var c = idx.names[raw.split('|')[1]];
+    return (c && c.length === 1) ? c[0] : raw;
+  }
+  function balByMinKey(idx){
+    var out = {};
+    Object.keys(BAL).forEach(function(raw){
+      var n = balNum(BAL[raw]);
+      if (n != null) out[resolveKey(raw, idx)] = n;
+    });
+    return out;
+  }
+  function balanceFilled0(text){
+    var idx = minIndex();
+    return scan(text).map(function(r){
+      if (!r.item) return r.line;
+      var v = BAL[r.item.key];
+      if (v == null || String(v).trim() === '') return r.line;
+      var rest = r.item.rest, u = idx.unit[resolveKey(r.item.key, idx)] || '';
+      var val = /^\(.*\)$/.test(rest) ? v + ' ' + rest : v + (u ? ' ' + u : '');
+      return r.item.prefix + r.item.name + r.item.colon + ' ' + val;
+    }).join('\n');
+  }
+  function orderText0(D){
+    var bal = balByMinKey(minIndex());
+    return scan(S.minmax[D]).map(function(r){
+      if (!r.item) return r.line;
+      var q = qtyOf(r.item.rest); if (!q) return r.line;
+      var b = bal[r.item.key];
+      var val = b == null ? '' : fmt(Math.max(0, q.n - b)) + (q.unitRaw ? ' ' + q.unitRaw : '');
+      return (r.item.prefix + r.item.name + r.item.colon + ' ' + val).replace(/\s+$/, '');
+    }).join('\n');
+  }
+  function balancePanel(day, onChange){
+    var idx = minIndex(), recs = scan(S.balance[day]);
+    if (!recs.some(function(r){ return r.item; })) return null;
+    var panel = el('div', {class:'sheet panel'});
+    var armed = false;
+    var clr = el('button', {type:'button', text:t('clear'), onclick:function(){
+      if (!armed){ armed = true; clr.textContent = t('cleararm'); setTimeout(function(){ armed = false; clr.textContent = t('clear'); }, 3000); return; }
+      BAL = {}; saveBal(); render();
+    }});
+    panel.appendChild(el('div', {class:'sheet-bar nostick'}, el('strong', {text:t('fill')}), clr));
+    headRows(panel, true, onChange);
+    var last = null, n = 0;
+    recs.forEach(function(r){
+      if (!r.item) return;
+      if (r.sup !== last){ last = r.sup; panel.appendChild(el('div', {class:'grp', text:supLabel(r.sup)})); }
+      var it = r.item, k = it.key, id = 'bal-' + (n++);
+      var pm = it.rest.match(/^\((.*)\)$/);
+      var u = idx.unit[resolveKey(k, idx)] || (pm ? pm[1] : '');
+      var inp = el('input', {class:'qty', type:'text', inputmode:'decimal', autocomplete:'off', id:id});
+      inp.value = BAL[k] != null ? BAL[k] : '';
+      inp.addEventListener('input', function(){
+        var v = inp.value.trim();
+        if (v === '') delete BAL[k]; else BAL[k] = v;
+        saveBal(); onChange();
+      });
+      panel.appendChild(el('label', {class:'frow', 'for':id},
+        el('span', {class:'n', text:it.name}),
+        el('span', {class:'f'}, inp, el('span', {class:'u', text:u}))));
+    });
+    panel.appendChild(el('p', {class:'hint', text:t('devnote')}));
+    return panel;
+  }
+  function orderPanel(){
+    var D = DAYS[ctx.orderDay], idx = minIndex(), bal = balByMinKey(idx);
+    var rows = [];
+    scan(S.minmax[D]).forEach(function(r){
+      if (!r.item) return;
+      var q = qtyOf(r.item.rest); if (!q) return;
+      var b = bal[r.item.key];
+      rows.push({sup:r.sup, name:r.item.name, q:q, b:(b == null ? null : b), o:(b == null ? null : Math.max(0, q.n - b))});
+    });
+    var out = [el('h3', {class:'h3', text:t('autoorder')})];
+    var pick = el('div', {class:'langs', role:'group', 'aria-label':t('orderday')});
+    DAYS.forEach(function(dd, i){
+      pick.appendChild(el('button', {type:'button', class: i === ctx.orderDay ? 'primary' : '', 'aria-pressed': i === ctx.orderDay ? 'true' : 'false', text:dayLabel(dd), onclick:function(){ ctx.orderDay = i; render(); }}));
+    });
+    var hp = el('div', {class:'sheet panel'}); headRows(hp, false, refreshOrderTexts); out.push(hp);
+    out.push(el('p', {class:'hint', text:t('orderday') + ' · ' + t('formula')}));
+    out.push(pick);
+    var list = el('div', {class:'sheet panel'});
+    if (!rows.length){
+      list.appendChild(el('p', {class:'hint', text:t('noorderday')}));
+    } else {
+      list.appendChild(el('div', {class:'orow ohead'}, el('span', {class:'n', text:t('item')}), el('span', {class:'c', text:t('minmaxs')}), el('span', {class:'c', text:t('bal')}), el('span', {class:'c', text:t('orders')})));
+      var last = null;
+      rows.forEach(function(x){
+        if (x.sup !== last){ last = x.sup; list.appendChild(el('div', {class:'grp', text:supLabel(x.sup)})); }
+        var u = x.q.unit ? ' ' + x.q.unit : '';
+        list.appendChild(el('div', {class:'orow'},
+          el('span', {class:'n', text:x.name}),
+          el('span', {class:'c', 'data-label':t('minmaxs'), text:fmt(x.q.n) + u}),
+          el('span', {class:'c', 'data-label':t('bal'), text:(x.b == null ? '–' : fmt(x.b) + u)}),
+          el('span', {class:'c ord' + (x.o === 0 ? ' zero' : ''), 'data-label':t('orders'), text:(x.o == null ? '–' : fmt(x.o) + u)})));
+      });
+      var miss = rows.filter(function(x){ return x.b == null; }).length;
+      if (miss) list.appendChild(el('p', {class:'hint', text:t('notcounted', miss)}));
+    }
+    out.push(list);
+    if (rows.length){
+      var pre = el('pre', {class:'txt', id:'order-text', text:orderText(D)});
+      var cb = el('button', {type:'button', class:'primary', text:t('copyorder'), onclick:function(){ copyFrom(orderText(D), pre, cb); }});
+      var tb = el('div', {class:'sheet'});
+      tb.appendChild(el('div', {class:'sheet-bar'}, el('span', {class:'note', text:t('autoorder') + ' · ' + dayLabel(D)}), el('div', {class:'btns'}, cb, shareTextBtn(function(){ return orderText(D); }))));
+      tb.appendChild(pre);
+      out.push(tb);
+    }
+    out.push(el('h3', {class:'h3', text:t('blank')}));
+    return out;
+  }
+
+
+  /* ---------- standby: fill in quantities, copy ---------- */
+  var STB = {};
+  function saveStb(){ try { localStorage.setItem('pngStandby' + lsSuffix(), JSON.stringify(STB)); } catch(e){} }
+  function todayStr(){
+    var d = new Date(), z = function(n){ return (n < 10 ? '0' : '') + n; };
+    return z(d.getDate()) + '/' + z(d.getMonth() + 1) + '/' + d.getFullYear();
+  }
+  ctx.sbDate = todayStr();
+  var SB_ITEM = /^(\s*\d+\s*[\)\.]\s*)(.*)$/;
+  function sbScan(text){
+    return String(text).split('\n').map(function(line){
+      var m = line.match(SB_ITEM);
+      if (!m) return {line:line, item:null, date:/^\s*date\s*:/i.test(line)};
+      var body = m[2], name = body, val = '', i = body.indexOf('-');
+      if (i >= 0){ name = body.slice(0, i); val = body.slice(i + 1).trim(); }
+      name = name.trim();
+      return {line:line, date:false, item:{prefix:m[1], name:name, val:val, key:canon(name)}};
+    });
+  }
+  function needOf(key){
+    var v = balNum(STB[key]), m = balNum((S.standbyMin || {})[key]);
+    return v != null && m != null && v <= m;
+  }
+  function standbyLines(text){
+    return sbScan(text).map(function(r){
+      if (r.date) return {t:'Date: ' + ctx.sbDate, need:false};
+      if (!r.item) return {t:r.line, need:false};
+      var v = STB[r.item.key];
+      if (v == null || String(v).trim() === '') return {t:r.line, need:false};
+      var nd = needOf(r.item.key);
+      return {t:r.item.prefix + r.item.name + '- ' + v + (nd ? ' 🔴🔴' : ''), need:nd};
+    });
+  }
+  function standbyFilled(text){ return standbyLines(text).map(function(x){ return x.t; }).join('\n'); }
+  function paintStandby(pre){
+    if (!pre) return;
+    var lines = standbyLines(S.standby), frag = document.createDocumentFragment();
+    lines.forEach(function(x, i){
+      var txt = x.t + (i < lines.length - 1 ? '\n' : '');
+      if (x.need){ var sp = document.createElement('span'); sp.className = 'need'; sp.textContent = txt; frag.appendChild(sp); }
+      else frag.appendChild(document.createTextNode(txt));
+    });
+    pre.replaceChildren(frag);
+  }
+  function lowestPage(){
+    var recs = sbScan(S.standby), box = el('div', {class:'sheet panel'}), fields = [];
+    var head = el('div', {class:'sheet-bar'}, el('strong', {text:t('lowest')}));
+    var inEdit = ctx.canEdit && ctx.editing;
+    if (ctx.canEdit && !inEdit){
+      head.appendChild(el('button', {type:'button', text:t('edit'), onclick:function(){ ctx.editing = true; ctx.status = ''; render(); }}));
+    }
+    if (inEdit){
+      var sb = el('button', {type:'button', class:'primary', text:t('save'), onclick:function(){
+        var prev = S.standbyMin || {}, next = {};
+        fields.forEach(function(f){ var v = f.inp.value.trim(); if (v !== '') next[f.key] = v; });
+        sb.disabled = true;
+        save(function(){ S.standbyMin = next; }, function(){ S.standbyMin = prev; });
+      }});
+      head.appendChild(sb);
+    }
+    box.appendChild(head);
+    box.appendChild(el('p', {class:'hint', text:t('lowesthint') + (ctx.canEdit ? '' : ' ' + t('lowestro'))}));
+    var n = 0;
+    recs.forEach(function(r){
+      if (!r.item) return;
+      var it = r.item, id = 'lo-' + (n++), cur = (S.standbyMin || {})[it.key];
+      var pm = it.name.match(/\s*\(([^)]*)\)\s*$/);
+      var shown = pm ? it.name.slice(0, pm.index) : it.name;
+      var unit = el('span', {class:'u', text:pm ? pm[1] : ''}), right;
+      if (inEdit){
+        var inp = el('input', {class:'qty', type:'text', inputmode:'decimal', autocomplete:'off', id:id});
+        inp.value = cur != null ? cur : '';
+        fields.push({key:it.key, inp:inp});
+        right = el('span', {class:'f'}, inp, unit);
+      } else {
+        right = el('span', {class:'f'}, el('span', {class:'ro', text:cur != null && cur !== '' ? cur : '–'}), unit);
+      }
+      box.appendChild(el('label', {class:'frow', 'for':id}, el('span', {class:'n', text:shown}), right));
+    });
+    return box;
+  }
+  function standbyPanel(onChange){
+    var recs = sbScan(S.standby);
+    var panel = el('div', {class:'sheet panel'});
+    var armed = false;
+    var clr = el('button', {type:'button', text:t('clear'), onclick:function(){
+      if (!armed){ armed = true; clr.textContent = t('cleararm'); setTimeout(function(){ armed = false; clr.textContent = t('clear'); }, 3000); return; }
+      STB = {}; saveStb(); render();
+    }});
+    panel.appendChild(el('div', {class:'sheet-bar nostick'}, el('strong', {text:t('fill')}), clr));
+    var dIn = el('input', {class:'qty', type:'text', inputmode:'numeric', autocomplete:'off', id:'sb-date', style:'width:130px'});
+    dIn.value = ctx.sbDate;
+    dIn.addEventListener('input', function(){ ctx.sbDate = dIn.value.trim(); onChange(); });
+    panel.appendChild(el('label', {class:'frow', 'for':'sb-date'}, el('span', {class:'n', text:t('date')}), el('span', {class:'f'}, dIn)));
+    var n = 0;
+    recs.forEach(function(r){
+      if (!r.item) return;
+      var it = r.item, k = it.key, id = 'sb-' + (n++);
+      var pm = it.name.match(/\s*\(([^)]*)\)\s*$/);
+      var shown = pm ? it.name.slice(0, pm.index) : it.name;
+      var inp = el('input', {class:'qty', type:'text', inputmode:'decimal', autocomplete:'off', id:id});
+      inp.value = STB[k] != null ? STB[k] : '';
+      var tag = el('span', {class:'tag', text:'🔴🔴'});
+      var row = el('label', {class:'frow', 'for':id},
+        el('span', {class:'n'}, shown, tag),
+        el('span', {class:'f'}, inp, el('span', {class:'u', text:pm ? pm[1] : ''})));
+      var mark = function(){ var nd = needOf(k); row.classList.toggle('low', nd); inp.classList.toggle('low', nd); };
+      mark();
+      inp.addEventListener('input', function(){
+        var v = inp.value.trim();
+        if (v === '') delete STB[k]; else STB[k] = v;
+        saveStb(); mark(); onChange();
+      });
+      panel.appendChild(row);
+    });
+    panel.appendChild(el('p', {class:'hint', text:t('devnote')}));
+    return panel;
+  }
+
+
+  /* ---------- item storage: lowest degree / balance / order ---------- */
+  var ITB = {}, ITO = {};
+  function saveItb(){ try { localStorage.setItem('pngItems' + lsSuffix(), JSON.stringify(ITB)); } catch(e){} }
+  function saveIto(){ try { localStorage.setItem('pngItemsOrd' + lsSuffix(), JSON.stringify(ITO)); } catch(e){} }
+  var IT_ITEM = /^(\s*\d+\s*[\)\.]\s*)([^:]+?)\s*:\s*(.*)$/;
+  function itScan(text){
+    return String(text).split('\n').map(function(line){
+      if (/^\s*\*?\s*outlet\s*:/i.test(line)) return {line:'*Outlet:* ' + (CUR.name || ''), item:null};
+      var m = line.match(IT_ITEM);
+      if (!m) return {line:line, item:null};
+      var unit = m[3].replace(/^\s*[\d.,]+\s*/, '').trim();
+      return {line:line, item:{prefix:m[1], name:m[2].trim().replace(/\s+/g, ' '), unit:unit, key:canon(m[2])}};
+    });
+  }
+  function itNeed(key){
+    var v = balNum(ITB[key]), m = balNum((S.itemsMin || {})[key]);
+    return v != null && m != null && v <= m;
+  }
+  function itBalLines(){
+    return itScan(S.items).map(function(r){
+      if (!r.item) return {t:r.line, need:false};
+      var v = ITB[r.item.key], has = v != null && String(v).trim() !== '';
+      var nd = has && itNeed(r.item.key);
+      return {t:r.item.prefix + r.item.name + ': ' + (has ? String(v).trim() : '0') + ' ' + r.item.unit + (nd ? ' 🔴🔴' : ''), need:nd};
+    });
+  }
+  function itBalText(){ return itBalLines().map(function(x){ return x.t; }).join('\n'); }
+  function paintItems(pre){
+    if (!pre) return;
+    var lines = itBalLines(), frag = document.createDocumentFragment();
+    lines.forEach(function(x, i){
+      var txt = x.t + (i < lines.length - 1 ? '\n' : '');
+      if (x.need){ var sp = document.createElement('span'); sp.className = 'need'; sp.textContent = txt; frag.appendChild(sp); }
+      else frag.appendChild(document.createTextNode(txt));
+    });
+    pre.replaceChildren(frag);
+  }
+  function itOrderText(){
+    var out = [], n = 0;
+    itScan(S.items).forEach(function(r){
+      if (!r.item){ out.push(/^\s*balance\s*$/i.test(r.line) ? 'Order' : r.line); return; }
+      if (!itNeed(r.item.key)) return;
+      var q = ITO[r.item.key]; q = (q == null || String(q).trim() === '') ? '0' : String(q).trim();
+      out.push((++n) + '. ' + r.item.name + ': ' + q + ' ' + r.item.unit);
+    });
+    return out.join('\n');
+  }
+  function itLowestPage(){
+    var box = el('div', {class:'sheet panel'}), fields = [];
+    var head = el('div', {class:'sheet-bar'}, el('strong', {text:t('lowest')}));
+    var inEdit = ctx.canEdit && ctx.editing;
+    if (ctx.canEdit && !inEdit){
+      head.appendChild(el('button', {type:'button', text:t('edit'), onclick:function(){ ctx.editing = true; ctx.status = ''; render(); }}));
+    }
+    if (inEdit){
+      var sb = el('button', {type:'button', class:'primary', text:t('save'), onclick:function(){
+        var prev = S.itemsMin || {}, next = {};
+        fields.forEach(function(f){ var v = f.inp.value.trim(); if (v !== '') next[f.key] = v; });
+        sb.disabled = true;
+        save(function(){ S.itemsMin = next; }, function(){ S.itemsMin = prev; });
+      }});
+      head.appendChild(sb);
+    }
+    box.appendChild(head);
+    box.appendChild(el('p', {class:'hint', text:t('lowesthint') + (ctx.canEdit ? '' : ' ' + t('lowestro'))}));
+    var n = 0;
+    itScan(S.items).forEach(function(r){
+      if (!r.item) return;
+      var it = r.item, id = 'il-' + (n++), cur = (S.itemsMin || {})[it.key], right;
+      var unit = el('span', {class:'u', text:it.unit});
+      if (inEdit){
+        var inp = el('input', {class:'qty', type:'text', inputmode:'decimal', autocomplete:'off', id:id});
+        inp.value = cur != null ? cur : '';
+        fields.push({key:it.key, inp:inp});
+        right = el('span', {class:'f'}, inp, unit);
+      } else {
+        right = el('span', {class:'f'}, el('span', {class:'ro', text:cur != null && cur !== '' ? cur : '–'}), unit);
+      }
+      box.appendChild(el('label', {class:'frow', 'for':id}, el('span', {class:'n', text:it.prefix.replace(/\s+$/, '') + ' ' + it.name}), right));
+    });
+    return box;
+  }
+  function itBalancePanel(onChange){
+    var panel = el('div', {class:'sheet panel'}), armed = false;
+    var clr = el('button', {type:'button', text:t('clear'), onclick:function(){
+      if (!armed){ armed = true; clr.textContent = t('cleararm'); setTimeout(function(){ armed = false; clr.textContent = t('clear'); }, 3000); return; }
+      ITB = {}; saveItb(); render();
+    }});
+    panel.appendChild(el('div', {class:'sheet-bar nostick'}, el('strong', {text:t('fill')}), clr));
+    var n = 0;
+    itScan(S.items).forEach(function(r){
+      if (!r.item) return;
+      var it = r.item, k = it.key, id = 'ib-' + (n++);
+      var inp = el('input', {class:'qty', type:'text', inputmode:'decimal', autocomplete:'off', id:id});
+      inp.value = ITB[k] != null ? ITB[k] : '';
+      var tag = el('span', {class:'tag', text:'🔴🔴'});
+      var row = el('label', {class:'frow', 'for':id},
+        el('span', {class:'n'}, it.prefix.replace(/\s+$/, '') + ' ' + it.name, tag),
+        el('span', {class:'f'}, inp, el('span', {class:'u', text:it.unit})));
+      var mark = function(){ var nd = itNeed(k) && String(ITB[k] == null ? '' : ITB[k]).trim() !== ''; row.classList.toggle('low', nd); inp.classList.toggle('low', nd); };
+      mark();
+      inp.addEventListener('input', function(){
+        var v = inp.value.trim();
+        if (v === '') delete ITB[k]; else ITB[k] = v;
+        saveItb(); mark(); onChange();
+      });
+      panel.appendChild(row);
+    });
+    panel.appendChild(el('p', {class:'hint', text:t('devnote')}));
+    return panel;
+  }
+  function itOrderPanel(onChange){
+    var panel = el('div', {class:'sheet panel'});
+    panel.appendChild(el('p', {class:'hint', text:t('itweekly')}));
+    var n = 0, any = false;
+    itScan(S.items).forEach(function(r){
+      if (!r.item || !itNeed(r.item.key)) return;
+      any = true;
+      var it = r.item, k = it.key, id = 'io-' + (n++);
+      var inp = el('input', {class:'qty', type:'text', inputmode:'decimal', autocomplete:'off', id:id});
+      inp.value = ITO[k] != null ? ITO[k] : '';
+      inp.setAttribute('aria-label', t('itqty') + ' ' + it.name);
+      panel.appendChild(el('label', {class:'frow low', 'for':id},
+        el('span', {class:'n'}, it.prefix.replace(/\s+$/, '') + ' ' + it.name, el('span', {class:'tag', text:'🔴🔴'})),
+        el('span', {class:'f'}, inp, el('span', {class:'u', text:it.unit}))));
+      inp.addEventListener('input', function(){
+        var v = inp.value.trim();
+        if (v === '') delete ITO[k]; else ITO[k] = v;
+        saveIto(); onChange();
+      });
+    });
+    if (!any) panel.appendChild(el('p', {class:'hint', text:t('itnone')}));
+    return panel;
+  }
+
+
+  /* ---------- name + date fields ---------- */
+  try { ctx.userName = localStorage.getItem('pngName') || ''; } catch(e){ ctx.userName = ''; }
+  function applyHead(text, withName){
+    return String(text).split('\n').map(function(line){
+      if (ctx.sbDate && /^\s*date\s*:/i.test(line)) return line.replace(/^(\s*date\s*:).*$/i, '$1 ' + ctx.sbDate);
+      if (withName && ctx.userName && /^\s*name\s*:/i.test(line)) return line.replace(/^(\s*name\s*:).*$/i, '$1 ' + ctx.userName);
+      return line;
+    }).join('\n');
+  }
+  function balanceFilled(text){ return applyHead(balanceFilled0(text), true); }
+  function orderText(D){ return applyHead(orderText0(D), false); }
+  function headRows(box, withName, onChange){
+    if (withName){
+      var nIn = el('input', {class:'qty', type:'text', autocomplete:'off', id:'f-name', style:'width:190px;text-align:left'});
+      nIn.value = ctx.userName;
+      nIn.addEventListener('input', function(){
+        ctx.userName = nIn.value.trim();
+        try { localStorage.setItem('pngName', ctx.userName); } catch(e){}
+        onChange();
+      });
+      box.appendChild(el('label', {class:'frow', 'for':'f-name'}, el('span', {class:'n', text:t('name')}), el('span', {class:'f'}, nIn)));
+    }
+    var dIn = el('input', {class:'qty', type:'text', inputmode:'numeric', autocomplete:'off', id:'f-date', style:'width:130px'});
+    dIn.value = ctx.sbDate;
+    dIn.addEventListener('input', function(){ ctx.sbDate = dIn.value.trim(); onChange(); });
+    box.appendChild(el('label', {class:'frow', 'for':'f-date'}, el('span', {class:'n', text:t('date')}), el('span', {class:'f'}, dIn)));
+  }
+  function refreshOrderTexts(){
+    var a = document.getElementById('order-text'); if (a) a.textContent = orderText(DAYS[ctx.orderDay]);
+    var b = document.getElementById('sheet-text'); if (b) b.textContent = applyHead(S.order, false);
+  }
+
+
+  function loadLocal(){
+    function ld(k){ try { return JSON.parse(localStorage.getItem(k + lsSuffix()) || '{}') || {}; } catch(e){ return {}; } }
+    BAL = ld('pngBal'); STB = ld('pngStandby'); SAL = ld('pngSalmon'); ITB = ld('pngItems'); ITO = ld('pngItemsOrd');
+  }
+  /* ---------- salmon fillets: fill in quantities, copy ---------- */
+  var SAL = {};
+  function saveSal(){ try { localStorage.setItem('pngSalmon' + lsSuffix(), JSON.stringify(SAL)); } catch(e){} }
+  var SAL_ITEM = /^(\s*\d+\s*[\)\.]\s*)([^:]+?)\s*:\s*(.*)$/;
+  function salScan(text){
+    return String(text).split('\n').map(function(line){
+      var m = line.match(SAL_ITEM);
+      if (!m) return {line:line, item:null};
+      var units = [], re = /(?:\d+(?:\.\d+)?\s*)?\b(nos|pkt|pcs|box|kg|g)\b/gi, u;
+      while ((u = re.exec(m[3])) !== null) units.push(u[1].toLowerCase());
+      if (!units.length) return {line:line, item:null};
+      return {line:line, item:{prefix:m[1], name:m[2].trim(), units:units, key:canon(m[2])}};
+    });
+  }
+  function salmonFilled(text){
+    return applyHead(salScan(text).map(function(r){
+      if (!r.item) return r.line;
+      var v = SAL[r.item.key] || {};
+      return r.item.prefix + r.item.name + ': ' + r.item.units.map(function(u){
+        var x = v[u]; return (x == null || String(x).trim() === '' ? '–' : String(x).trim()) + ' ' + u;
+      }).join(' ');
+    }).join('\n'), true);
+  }
+  function salmonPanel(onChange){
+    var recs = salScan(S.salmon);
+    var panel = el('div', {class:'sheet panel'});
+    var armed = false;
+    var clr = el('button', {type:'button', text:t('clear'), onclick:function(){
+      if (!armed){ armed = true; clr.textContent = t('cleararm'); setTimeout(function(){ armed = false; clr.textContent = t('clear'); }, 3000); return; }
+      SAL = {}; saveSal(); render();
+    }});
+    panel.appendChild(el('div', {class:'sheet-bar nostick'}, el('strong', {text:t('fill')}), clr));
+    headRows(panel, true, onChange);
+    var n = 0;
+    recs.forEach(function(r){
+      if (!r.item) return;
+      var it = r.item, k = it.key, f = el('span', {class:'f'}), firstId = null;
+      it.units.forEach(function(u){
+        var id = 'sal-' + (n++); if (!firstId) firstId = id;
+        var inp = el('input', {class:'qty', type:'text', inputmode:'decimal', autocomplete:'off', id:id});
+        inp.value = (SAL[k] && SAL[k][u] != null) ? SAL[k][u] : '';
+        inp.addEventListener('input', function(){
+          var v = inp.value.trim();
+          SAL[k] = SAL[k] || {};
+          if (v === '') delete SAL[k][u]; else SAL[k][u] = v;
+          saveSal(); onChange();
+        });
+        f.appendChild(inp); f.appendChild(el('span', {class:'u', text:u}));
+      });
+      panel.appendChild(el('label', {class:'frow' + (it.units.length > 1 ? ' multi' : ''), 'for':firstId}, el('span', {class:'n', text:it.name}), f));
+    });
+    panel.appendChild(el('p', {class:'hint', text:t('devnote')}));
+    return panel;
+  }
+
+
+  function bgBar(){
+    var bar = el('div', {class:'bgbar'});
+    var inp = el('input', {type:'file', accept:'image/*', style:'display:none'});
+    inp.addEventListener('change', function(){
+      var f = inp.files && inp.files[0]; if (!f) return;
+      ctx.status = t('bgbusy'); ctx.err = false; render();
+      var url = URL.createObjectURL(f), img = new Image();
+      img.onload = function(){
+        var max = 1200, k = Math.min(1, max / Math.max(img.width, img.height));
+        var c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        var data = c.toDataURL('image/jpeg', 0.72); URL.revokeObjectURL(url);
+        var prev = S.bg; save(function(){ S.bg = data; }, function(){ S.bg = prev; });
+      };
+      img.onerror = function(){ URL.revokeObjectURL(url); ctx.status = t('bgbad'); ctx.err = true; render(); };
+      img.src = url;
+    });
+    bar.appendChild(inp);
+    bar.appendChild(el('button', {type:'button', text: S.bg ? t('bgchange') : t('bgadd'), onclick:function(){ inp.click(); }}));
+    if (S.bg) bar.appendChild(el('button', {type:'button', text:t('bgremove'), onclick:function(){
+      var prev = S.bg; save(function(){ S.bg = ''; }, function(){ S.bg = prev; });
+    }}));
+    return bar;
+  }
+  function applyBg(home){
+    var d = document.getElementById('bgfix');
+    if (home && S.bg){
+      if (!d){ d = document.createElement('div'); d.id = 'bgfix'; document.body.insertBefore(d, document.body.firstChild); }
+      d.style.backgroundImage = 'url("' + S.bg + '")';
+    } else if (d){ d.parentNode.removeChild(d); }
+  }
+
+
+
+  function defText(k){ var e = T[k]; return (e && (e[ctx.lang] || e.en)) || k; }
+  var LKEYS = ['minmax','week','balance','order','blank','schedule','suppliers','standby','standbysub','salmon','salmonsub','items','itemssub'];
+  function labelsPage(){
+    var box = el('div', {class:'sheet panel'}), fields = [], outFields = [];
+    var head = el('div', {class:'sheet-bar'}, el('strong', {text:t('lpage')}));
+    var sb = el('button', {type:'button', class:'primary', text:t('save'), onclick:function(){
+      var prevTx = R.tx, prevO = R.outlets.slice(), prevD = R.data, prevCur = CUR.name;
+      var tx = JSON.parse(JSON.stringify(R.tx || {}));
+      function put(key, val, def){
+        var v = val.trim();
+        if (v === '' || v === def){ if (tx[key]){ delete tx[key][ctx.lang]; if (!Object.keys(tx[key]).length) delete tx[key]; } }
+        else { tx[key] = tx[key] || {}; tx[key][ctx.lang] = v; }
+      }
+      fields.forEach(function(f){ put(f.key, f.inp.value, defText(f.key)); });
+      var names = [], data = {}, used = {};
+      outFields.forEach(function(f){
+        var nm = f.inp.value.trim().replace(/\s+/g, ' ') || f.old;
+        if (used[nm.toLowerCase()]) nm = f.old;
+        used[nm.toLowerCase()] = 1; names.push(nm);
+        var d = R.data[f.old];
+        if (nm !== f.old && typeof d.salmon === 'string'){
+          var esc = f.old.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          d = Object.assign({}, d, {salmon: d.salmon.replace(new RegExp('(Outlet\\s*:\\s*)' + esc, 'i'), function(m, p1){ return p1 + nm; })});
+        }
+        data[nm] = d;
+      });
+      var map = {}; outFields.forEach(function(f, i){ map[f.old] = names[i]; });
+      var prevEd = JSON.stringify(R.editors || []);
+      sb.disabled = true;
+      save(function(){ R.tx = tx; R.outlets = names; R.data = data; R.editors = (R.editors || []).map(function(e){ return {email:e.email, outlets:e.outlets.map(function(o){ return map[o] || o; })}; }); if (CUR.name) CUR.name = map[CUR.name] || CUR.name; },
+           function(){ R.tx = prevTx; R.outlets = prevO; R.data = prevD; R.editors = JSON.parse(prevEd); CUR.name = prevCur; });
+    }});
+    var rs = el('button', {type:'button', text:t('lreset'), onclick:function(){
+      var tx = JSON.parse(JSON.stringify(R.tx || {})), prev = R.tx;
+      Object.keys(tx).forEach(function(k){ delete tx[k][ctx.lang]; if (!Object.keys(tx[k]).length) delete tx[k]; });
+      save(function(){ R.tx = tx; }, function(){ R.tx = prev; });
+    }});
+    head.appendChild(el('div', {class:'btns'}, rs, sb));
+    box.appendChild(head);
+    box.appendChild(el('p', {class:'hint', text:t('lhint')}));
+    function row(id, label, val, store){
+      var inp = el('input', {class:'qty', type:'text', autocomplete:'off', id:id, style:'width:100%;text-align:left'});
+      inp.value = val;
+      store(inp);
+      box.appendChild(el('label', {class:'frow multi', 'for':id}, el('span', {class:'n', style:'font-size:12px;color:var(--muted)', text:label}), el('span', {class:'f'}, inp)));
+    }
+    box.appendChild(el('div', {class:'grp', text:t('outletback')}));
+    R.outlets.forEach(function(o, i){
+      row('lo-' + i, o, o, function(inp){ outFields.push({old:o, inp:inp}); });
+    });
+    box.appendChild(el('div', {class:'grp', text:t('ltext')}));
+    LKEYS.forEach(function(k, i){
+      row('lb-' + i, T[k].en, t(k), function(inp){ fields.push({key:k, inp:inp}); });
+    });
+    return box;
+  }
+
+  function setOutlet(name){
+    CUR.name = name; ctx.orderDay = (new Date().getDay() + 6) % 7;
+    try { if (name) sessionStorage.setItem('pngOutlet', name); else sessionStorage.removeItem('pngOutlet'); } catch(e){}
+    loadLocal();
+  }
+
+  var SHARE_URL = 'https://claude.ai/artifact/SEMKcugohRgGXPkuz3AwC3';
+  function shareBox(){
+    var pre = el('pre', {class:'txt', text:SHARE_URL, style:'padding:10px 14px;font-size:13px'});
+    var btn = el('button', {type:'button', class:'primary', text:t('copy'), onclick:function(){ copyFrom(SHARE_URL, pre, btn); }});
+    var box = el('div', {class:'sheet panel'});
+    box.appendChild(el('div', {class:'sheet-bar'}, el('strong', {text:t('sharetitle')}), btn));
+    box.appendChild(pre);
+    box.appendChild(el('p', {class:'hint', text:t('sharehint')}));
+    return box;
+  }
+
+  function linkFor(o){ return SHARE_URL + '#o-' + oid(o); }
+  function shareTextBtn(getText, labelKey){
+    var a = el('a', {class:'btnlink', style:'background:var(--surface);color:var(--ink);border-color:var(--line)', href:waHref(getText()), target:'_blank', rel:'noopener', text:t(labelKey || 'sharetext')});
+    var refresh = function(){ a.setAttribute('href', waHref(getText())); };
+    ['pointerdown','touchstart','mousedown'].forEach(function(ev){ a.addEventListener(ev, refresh, {passive:true}); });
+    a.addEventListener('click', function(){
+      var txt = ''; try { txt = getText(); refresh(); } catch(e){}
+      try { sendHelp(a, txt); } catch(e){}
+      try { legacyCopy(txt); } catch(e){}
+    });
+    return a;
+  }
+  function sendHelp(anchor, txt){
+    var old = document.getElementById('send-help'); if (old && old.parentNode) old.parentNode.removeChild(old);
+    var enc = encodeURIComponent(txt);
+    var box = el('div', {class:'sheet panel', id:'send-help'},
+      el('p', {class:'hint', text:t('sendhelp')}),
+      el('div', {class:'btns', style:'padding:10px 14px 14px;display:flex;gap:8px;flex-wrap:wrap'},
+        el('a', {class:'btnlink', href:'whatsapp://send?text=' + enc, text:t('sendopen')}),
+        el('a', {class:'btnlink', href:'https://api.whatsapp.com/send?text=' + enc, target:'_blank', rel:'noopener', text:t('sendopen2')})));
+    var host = anchor.closest ? (anchor.closest('.sheet') || anchor.closest('.wrap')) : null;
+    if (host && host.parentNode) host.parentNode.insertBefore(box, host.nextSibling);
+  }
+  function waHref(text){ return 'https://wa.me/?text=' + encodeURIComponent(text); }
+  function accessPanel(){
+    var box = el('div', {class:'sheet panel'});
+    box.appendChild(el('div', {class:'sheet-bar'}, el('strong', {text:t('accessbtn')}),
+      el('button', {type:'button', text:t('shareclose'), onclick:function(){ ctx.shareMode = ''; render(); }})));
+    var emIn = el('input', {class:'qty', type:'email', inputmode:'email', autocomplete:'off', autocapitalize:'off', id:'sh-mail', placeholder:'name@gmail.com', style:'width:100%;text-align:left'});
+    emIn.value = ctx.shareEmail;
+    emIn.addEventListener('input', function(){ ctx.shareEmail = emIn.value.trim(); });
+    box.appendChild(el('label', {class:'frow multi', 'for':'sh-mail'}, el('span', {class:'n', style:'font-size:12px;color:var(--muted)', text:t('gmail')}), el('span', {class:'f'}, emIn)));
+    var tabs = el('div', {class:'bgbar', style:'padding:12px 14px'});
+    [['view', t('shareview')], ['edit', t('shareedit')]].forEach(function(x){
+      tabs.appendChild(el('button', {type:'button', class: ctx.accLevel === x[0] ? 'primary' : '', text:x[1], onclick:function(){ ctx.accLevel = x[0]; ctx.shareMsg = ''; render(); }}));
+    });
+    box.appendChild(tabs);
+    if (ctx.accLevel === 'edit'){
+      box.appendChild(el('div', {class:'grp', text:t('sharepick')}));
+      R.outlets.forEach(function(o, i){
+        var cbx = el('input', {type:'checkbox', id:'sh-o-' + i, style:'width:22px;height:22px'});
+        cbx.checked = !!ctx.shareSel[o];
+        cbx.addEventListener('change', function(){ ctx.shareSel[o] = cbx.checked; });
+        box.appendChild(el('label', {class:'frow', 'for':'sh-o-' + i}, el('span', {class:'n', text:o}), el('span', {class:'f'}, cbx)));
+      });
+    }
+    var m = el('p', {class:'hint', text: ctx.shareMsg || t('editnote')});
+    var allow = el('button', {type:'button', class:'primary', text:t('allow'), onclick:function(){
+      var mail = (emIn.value || '').trim().toLowerCase();
+      var outs = R.outlets.filter(function(o){ return ctx.shareSel[o]; });
+      var isEdit = ctx.accLevel === 'edit';
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail) || (isEdit && !outs.length)){ ctx.shareMsg = t('bademail'); render(); return; }
+      var prevE = JSON.stringify(R.editors || []), prevV = JSON.stringify(R.viewers || []);
+      allow.disabled = true;
+      save(function(){
+        var ed = (R.editors || []).filter(function(x){ return String(x.email).toLowerCase() !== mail; });
+        var vw = (R.viewers || []).filter(function(x){ return String(x).toLowerCase() !== mail; });
+        if (isEdit) ed.push({email:mail, outlets:outs}); else vw.push(mail);
+        R.editors = ed; R.viewers = vw; ctx.shareEmail = ''; ctx.shareSel = {}; ctx.shareMsg = '';
+      }, function(){ R.editors = JSON.parse(prevE); R.viewers = JSON.parse(prevV); });
+    }});
+    box.appendChild(el('div', {class:'bgbar', style:'padding:12px 14px'}, allow));
+    box.appendChild(m);
+    var rows = [];
+    (R.viewers || []).forEach(function(v){ rows.push({email:v, lvl:t('shareview'), kind:'v'}); });
+    (R.editors || []).forEach(function(e){ rows.push({email:e.email, lvl:t('shareedit') + ': ' + e.outlets.join(', '), kind:'e', ref:e}); });
+    if (rows.length){
+      box.appendChild(el('div', {class:'grp', text:t('editors')}));
+      rows.forEach(function(r){
+        var f = el('span', {class:'f', style:'flex-wrap:wrap'}, el('span', {class:'u', style:'min-width:0', text:r.lvl}));
+        f.appendChild(el('button', {type:'button', text:t('remove'), onclick:function(){
+          var prevE = JSON.stringify(R.editors || []), prevV = JSON.stringify(R.viewers || []);
+          save(function(){
+            if (r.kind === 'v') R.viewers = R.viewers.filter(function(x){ return x !== r.email; });
+            else R.editors = R.editors.filter(function(x){ return x !== r.ref; });
+          }, function(){ R.editors = JSON.parse(prevE); R.viewers = JSON.parse(prevV); });
+        }}));
+        box.appendChild(el('div', {class:'frow multi'}, el('span', {class:'n', text:r.email}), f));
+      });
+    }
+    return box;
+  }
+  function approved(){
+    return true; // access gate switched off: no approval step
+    if (ctx.isOwner) return true;
+    var e = (ctx.email || '').toLowerCase(); if (!e) return false;
+    return !!editorEntry() || (R.viewers || []).some(function(v){ return String(v).toLowerCase() === e; });
+  }
+  function gatePage(kids){
+    var box = el('div', {class:'sheet panel'});
+    box.appendChild(el('div', {class:'sheet-bar'}, el('strong', {text:t('gatetitle')})));
+    box.appendChild(el('p', {class:'hint', text: t('gatetext')}));
+    box.appendChild(el('p', {class:'hint', text: ctx.email ? (t('gateyou') + ': ' + ctx.email) : t('gatenomail')}));
+    var rb = requestBox(box); rb.firstChild.textContent = t('reqaccess');
+    box.appendChild(el('div', {style:'padding:12px 14px'}, rb));
+    kids.push(el('h1', {text:t('title')})); kids.push(box);
+  }
+  function deepLink(h){
+    var m = String(h || '').match(/^#?o-(.+)$/); if (!m) return false;
+    var o = R.outlets.filter(function(x){ return oid(x) === m[1]; })[0];
+    if (!o) return false;
+    setOutlet(o); ctx.hash = ''; return true;
+  }
+  function outletPage(kids){
+    if (ctx.isOwner && ctx.shareMode){ kids.push(accessPanel()); return; }
+    var hero = el('div', {class:'hero'},
+      el('div', {class:'top'}, el('span', {class:'eyebrow', text:'UO SHIN · Sushi Bar'}), badge()),
+      el('h1', {text:t('title')}));
+    if (ctx.isOwner){
+      var bb = bgBar();
+      bb.appendChild(el('button', {type:'button', text:t('outletadd'), onclick:function(){ ctx.showAdd = !ctx.showAdd; render(); }}));
+      hero.appendChild(bb);
+    }
+    kids.push(hero);
+
+    kids.push(el('h2', {text:t('pickoutlet')}));
+    var g = el('div', {class:'tiles'});
+    R.outlets.forEach(function(o){
+      var a = tile('#', o, '', false);
+      a.addEventListener('click', function(ev){ ev.preventDefault(); ev.stopPropagation(); setOutlet(o); go(''); });
+      g.appendChild(a);
+    });
+    kids.push(g);
+    if (ctx.isOwner && ctx.showAdd){
+      var box = el('div', {class:'sheet panel'});
+      var inp = el('input', {class:'qty', type:'text', autocomplete:'off', id:'o-new', placeholder:t('outletname'), style:'width:100%;text-align:left'});
+      var msg = el('p', {class:'hint', text:t('outletnote')});
+      var add = el('button', {type:'button', class:'primary', text:t('outletadd'), onclick:function(){
+        var nm = inp.value.trim().replace(/\s+/g, ' '); if (!nm) return;
+        if (R.outlets.some(function(o){ return o.toLowerCase() === nm.toLowerCase(); })){ msg.textContent = t('outletdup'); return; }
+        var src = R.data[R.outlets[0]], copy = JSON.parse(JSON.stringify(src));
+        var txt = JSON.stringify(copy).replace(/\bPNG\b/g, nm.replace(/\\/g,'\\\\').replace(/"/g,'\\"'));
+        var prevO = R.outlets.slice();
+        save(function(){ R.data[nm] = JSON.parse(txt); R.outlets.push(nm); }, function(){ delete R.data[nm]; R.outlets = prevO; });
+      }});
+      box.appendChild(el('div', {class:'sheet-bar'}, el('strong', {text:t('outletadd')}), add));
+      box.appendChild(el('label', {class:'frow multi', 'for':'o-new'}, el('span', {class:'f'}, inp)));
+      box.appendChild(msg);
+      if (R.outlets.length > 1){
+        var row = el('div', {class:'bgbar', style:'padding:0 14px 14px'});
+        R.outlets.slice(1).forEach(function(o){
+          var armed = false, b = el('button', {type:'button', text:t('outletdel') + ': ' + o, onclick:function(){
+            if (!armed){ armed = true; b.textContent = t('outletdelarm') + ': ' + o; setTimeout(function(){ armed = false; b.textContent = t('outletdel') + ': ' + o; }, 3000); return; }
+            var prevO = R.outlets.slice(), prevD = R.data[o];
+            save(function(){ R.outlets = R.outlets.filter(function(x){ return x !== o; }); delete R.data[o]; }, function(){ R.outlets = prevO; R.data[o] = prevD; });
+          }});
+          row.appendChild(b);
+        });
+        box.appendChild(row);
+      }
+      kids.push(box);
+    }
+  }
+
+  function route(){
+    var h = String(ctx.hash == null ? location.hash : ctx.hash).replace(/^#/, '');
+    var i = h.indexOf('-');
+    return i < 0 ? {sec:h, key:''} : {sec:h.slice(0, i), key:h.slice(i + 1)};
+  }
+  function dayFromKey(k){ return DAYS.filter(function(d){ return slug(d) === k; })[0]; }
+  function supFromKey(k){ return supsNow().filter(function(s){ return slug(s) === k; })[0]; }
+
+  function sectionNamesHome(r){ return ['minmax','balance','order','schedule','standby','salmon','items','labels'].indexOf(r.sec) >= 0; }
+  function render(){
+    var wrap = el('div', {class:'wrap', lang:langCode()});
+    var r = route();
+    var kids = [langBar()];
+    if (window.claude && window.claude.use){
+      if (!ctx.ready){ kids.push(el('p', {class:'hint', text:t('loading')})); wrap.replaceChildren.apply(wrap, kids); app.replaceChildren(wrap); return; }
+      if (!approved()){ applyBg(false); gatePage(kids); wrap.replaceChildren.apply(wrap, kids); app.replaceChildren(wrap); return; }
+    }
+    if (CUR.name && R.outlets.indexOf(CUR.name) < 0) setOutlet(null);
+    if (!CUR.name && r.sec === 'labels') { /* labels allowed without outlet */ }
+    else if (!CUR.name) { r = {sec:'', key:''}; }
+    applyBg(!sectionNamesHome(r));
+    var sectionNames = {minmax:t('minmax'), balance:t('balance'), order:t('order'), schedule:t('schedule'), standby:t('standby'), salmon:t('salmon'), items:t('items'), labels:t('lpage')};
+
+    if (!CUR.name && !sectionNames[r.sec]){
+      outletPage(kids);
+    } else if (!sectionNames[r.sec]){
+      kids.push(el('nav', {class:'crumbs'}, el('a', {href:'#outlets', text:'\u2190 ' + t('outletback')})));
+      var hero = el('div', {class:'hero'}, el('h1', {text:CUR.name}));
+      kids.push(hero);
+      kids.push(el('div', {class:'tiles'},
+        tile('#minmax', t('minmax'), t('week')),
+        tile('#balance', t('balance'), t('week')),
+        tile('#order', t('order'), t('blank')),
+        tile('#schedule', t('schedule'), t('suppliers', supsNow().length)),
+        tile('#standby', t('standby'), t('standbysub')),
+        tile('#salmon', t('salmon'), t('salmonsub')),
+        tile('#items', t('items'), t('itemssub'))));
+    } else if (r.sec === 'minmax' || r.sec === 'balance'){
+      var data = S[r.sec];
+      var d = dayFromKey(r.key);
+      if (!d){
+        kids.push(crumbs([{label:'Home', href:'#'}, {label:sectionNames[r.sec]}]));
+        kids.push(el('h2', {text:sectionNames[r.sec]}));
+        var g = el('div', {class:'days'});
+        DAYS.forEach(function(dd){
+          var none = /^not need/i.test(data[dd].trim());
+          g.appendChild(tile('#' + r.sec + '-' + slug(dd), dayLabel(dd), '', true, none ? t('noorder') : null));
+        });
+        kids.push(g);
+      } else {
+        kids.push(crumbs([{label:'Home', href:'#'}, {label:sectionNames[r.sec], href:'#' + r.sec}, {label:d}]));
+        kids.push(el('h2', {text:sectionNames[r.sec] + ' · ' + dayLabel(d)}));
+        if (r.sec === 'balance' && !(ctx.editing && ctx.canEdit)){
+          var bp = balancePanel(d, function(){ var pr = document.getElementById('sheet-text'); if (pr) pr.textContent = balanceFilled(data[d]); });
+          if (bp) kids.push(bp);
+        }
+        sheetView(r.sec + d, dayLabel(d), function(){ return data[d]; }, function(v){ data[d] = v; },
+          r.sec === 'balance' ? function(){ return balanceFilled(data[d]); } : null).forEach(function(n){ kids.push(n); });
+      }
+    } else if (r.sec === 'order'){
+      kids.push(crumbs([{label:'Home', href:'#'}, {label:'Order'}]));
+      kids.push(el('h2', {text:t('order')}));
+      orderPanel().forEach(function(n){ kids.push(n); });
+      sheetView('order', t('order'), function(){ return S.order; }, function(v){ S.order = v; }, function(){ return applyHead(S.order, false); }).forEach(function(n){ kids.push(n); });
+    } else if (r.sec === 'standby'){
+      var sub = r.key;
+      if (sub !== 'lowest' && sub !== 'balance'){
+        kids.push(crumbs([{label:'Home', href:'#'}, {label:t('standby')}]));
+        kids.push(el('h2', {text:t('standby')}));
+        kids.push(el('div', {class:'tiles'},
+          tile('#standby-lowest', t('lowest'), t('lowestsub')),
+          tile('#standby-balance', t('balchk'), t('balchksub'))));
+      } else if (sub === 'lowest'){
+        kids.push(crumbs([{label:'Home', href:'#'}, {label:t('standby'), href:'#standby'}, {label:t('lowest')}]));
+        kids.push(el('h2', {text:t('standby') + ' · ' + t('lowest')}));
+        kids.push(lowestPage());
+      } else {
+        kids.push(crumbs([{label:'Home', href:'#'}, {label:t('standby'), href:'#standby'}, {label:t('balchk')}]));
+        kids.push(el('h2', {text:t('standby') + ' · ' + t('balchk')}));
+        if (!(ctx.editing && ctx.canEdit)) kids.push(standbyPanel(function(){ paintStandby(document.getElementById('sheet-text')); }));
+        var sn = sheetView('standby', t('standby'), function(){ return S.standby; }, function(v){ S.standby = v; }, function(){ return standbyFilled(S.standby); });
+        var spre = sn[0].querySelector('#sheet-text'); if (spre) paintStandby(spre);
+        sn.forEach(function(n){ kids.push(n); });
+      }
+    } else if (r.sec === 'items'){
+      var isub = r.key;
+      if (isub !== 'lowest' && isub !== 'balance'){
+        kids.push(crumbs([{label:'Home', href:'#'}, {label:t('items')}]));
+        kids.push(el('h2', {text:t('items')}));
+        kids.push(el('div', {class:'tiles'},
+          tile('#items-lowest', t('lowest'), t('lowestsub')),
+          tile('#items-balance', t('itbal'), t('itbalsub'))));
+      } else if (isub === 'lowest'){
+        kids.push(crumbs([{label:'Home', href:'#'}, {label:t('items'), href:'#items'}, {label:t('lowest')}]));
+        kids.push(el('h2', {text:t('items') + ' · ' + t('lowest')}));
+        kids.push(itLowestPage());
+      } else if (isub === 'balance'){
+        kids.push(crumbs([{label:'Home', href:'#'}, {label:t('items'), href:'#items'}, {label:t('itbal')}]));
+        kids.push(el('h2', {text:t('items') + ' · ' + t('itbal')}));
+        if (!(ctx.editing && ctx.canEdit)) kids.push(itBalancePanel(function(){ paintItems(document.getElementById('sheet-text')); }));
+        var ib = sheetView('itemsbal', t('itbal'), function(){ return S.items; }, function(v){ S.items = v; }, itBalText);
+        var ipre = ib[0].querySelector('#sheet-text'); if (ipre) paintItems(ipre);
+        ib.forEach(function(n){ kids.push(n); });
+      } else {
+        kids.push(crumbs([{label:'Home', href:'#'}, {label:t('items'), href:'#items'}, {label:t('order')}]));
+        kids.push(el('h2', {text:t('items') + ' · ' + t('order')}));
+        if (!(ctx.editing && ctx.canEdit)) kids.push(itOrderPanel(function(){ var pr = document.getElementById('sheet-text'); if (pr) pr.textContent = itOrderText(); }));
+        sheetView('itemsorder', t('order'), function(){ return S.items; }, function(v){ S.items = v; }, itOrderText).forEach(function(n){ kids.push(n); });
+      }
+    } else if (r.sec === 'labels'){
+      kids.push(crumbs([{label:'Home', href:'#'}, {label:t('lpage')}]));
+      kids.push(el('h2', {text:t('lpage')}));
+      if (ctx.isOwner) kids.push(labelsPage());
+      else kids.push(el('p', {class:'hint', text:t('noperm')}));
+    } else if (r.sec === 'salmon'){
+      kids.push(crumbs([{label:'Home', href:'#'}, {label:t('salmon')}]));
+      kids.push(el('h2', {text:t('salmon')}));
+      var refreshSal = function(){ var pr = document.getElementById('sheet-text'); if (pr) pr.textContent = salmonFilled(S.salmon); };
+      if (!(ctx.editing && ctx.canEdit)) kids.push(salmonPanel(refreshSal));
+      sheetView('salmon', t('salmon'), function(){ return S.salmon; }, function(v){ S.salmon = v; }, function(){ return salmonFilled(S.salmon); }).forEach(function(n){ kids.push(n); });
+    } else if (r.sec === 'schedule'){
+      var s = supFromKey(r.key);
+      if (!s){
+        kids.push(crumbs([{label:'Home', href:'#'}, {label:'Ordering Schedule'}]));
+        kids.push(el('h2', {text:t('schedule')}));
+        var g2 = el('div', {class:'tiles'});
+        supsNow().forEach(function(ss){ g2.appendChild(tile('#schedule-' + slug(ss), ss, '', true)); });
+        kids.push(g2);
+      } else {
+        kids.push(crumbs([{label:'Home', href:'#'}, {label:'Ordering Schedule', href:'#schedule'}, {label:s}]));
+        kids.push(el('h2', {text:s}));
+        sheetView('sch' + s, s, function(){ return S.schedule[s]; }, function(v){ S.schedule[s] = v; }).forEach(function(n){ kids.push(n); });
+      }
+    }
+    kids.push(el('div', {class:'status' + (ctx.err ? ' err' : ''), role:'status', text:ctx.status}));
+    kids.forEach(function(k){ wrap.appendChild(k); });
+    app.replaceChildren(wrap);
+  }
+
+  ctx.hash = location.hash;
+  deepLink(location.hash);
+  try { var so = sessionStorage.getItem('pngOutlet'); if (so && location.hash.length > 1 && R.outlets.indexOf(so) >= 0) setOutlet(so); } catch(e){}
+  function go(h){
+    if (h === '#outlets'){ setOutlet(null); h = ''; }
+    if (deepLink(h)) h = ''; ctx.hash = h; ctx.showAdd = false; ctx.editing = false; ctx.status = ''; ctx.err = false;
+    try { if (location.hash !== h) location.hash = h; } catch(e){}
+    render(); try { window.scrollTo(0, 0); } catch(e){}
+  }
+  app.addEventListener('click', function(ev){
+    var a = ev.target && ev.target.closest ? ev.target.closest('a[href^="#"]') : null;
+    if (!a) return;
+    ev.preventDefault();
+    go(a.getAttribute('href') === '#' ? '' : a.getAttribute('href'));
+  });
+  window.addEventListener('hashchange', function(){ ctx.hash = location.hash; if (deepLink(location.hash)) ctx.hash = ''; ctx.editing = false; ctx.status = ''; ctx.err = false; render(); window.scrollTo(0, 0); });
+  render();
+
+  /* capabilities light up after first paint */
+  (async function(){
+    if (!window.claude || !window.claude.use) return;
+    try {
+      var u = await window.claude.use('user');
+      if (u){
+        ctx.plat = !!(await u.canEdit()); ctx.isOwner = !!(await u.isOwner());
+        try { var me = await u.me(); ctx.email = String((me && me.email) || '').toLowerCase(); } catch(e2){}
+      }
+    } catch(e){}
+    try { ctx.artifact = await window.claude.use('artifact'); } catch(e){}
+    try { ctx.comments = await window.claude.use('comments'); } catch(e){}
+    if (!ctx.artifact){ ctx.plat = false; ctx.isOwner = false; }
+    ctx.ready = true;
+    render();
+  })();
+})();
+</script>
+
+</body></html>
