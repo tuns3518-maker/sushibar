@@ -423,6 +423,8 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
   };
   Object.keys(NT2).forEach(function(k){ T[k] = NT2[k]; });
   Object.assign(T, {
+    unitslabel:{en:'Units: tap a unit to change it',my:'ယူနစ်: ပြောင်းချင်တဲ့ ယူနစ်ကို နှိပ်ပါ'},
+    unitsnone:{en:'No units yet. Add a quantity and unit to a line first.',my:'ယူနစ် မရှိသေးပါ။ စာကြောင်းမှာ ပမာဏနဲ့ ယူနစ် အရင်ထည့်ပါ။'},
     settings:{en:'Settings',my:'ဆက်တင်'},
     langbtn:{en:'Language',my:'ဘာသာစကား'},
     chpw:{en:'Change Password',my:'စကားဝှက်ပြောင်းရန်'},
@@ -841,7 +843,15 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     });
     pre.replaceChildren(frag);
   }
+  function unitPick(cur, onPick){
+    var s = unitSel(), c = String(cur || '').toLowerCase();
+    if (c && UNITS5.indexOf(c) < 0) s.insertBefore(el('option', {value:c, text:cur}), s.firstChild);
+    if (c) s.value = c;
+    s.addEventListener('change', function(){ onPick(s.value); });
+    return s;
+  }
   function lowestPage(){
+    var UCH = {};
     var recs = sbScan(S.standby), box = el('div', {class:'sheet panel'}), fields = [];
     var head = el('div', {class:'sheet-bar'}, el('strong', {text:t('lowest')}));
     var inEdit = ctx.canEdit && ctx.editing;
@@ -850,10 +860,12 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     }
     if (inEdit){
       var sb = el('button', {type:'button', class:'primary', text:t('save'), onclick:function(){
-        var prev = S.standbyMin || {}, next = {};
+        var prev = S.standbyMin || {}, next = {}, prevT = S.standby, nextT = prevT;
         fields.forEach(function(f){ var v = f.inp.value.trim(); if (v !== '') next[f.key] = v; });
+        var cs = Object.keys(UCH);
+        if (cs.length) nextT = String(prevT).split('\n').map(function(l){ var c = lineCode(l); return (c && UCH[c] && /\([^)]*\)/.test(l)) ? l.replace(/\([^)]*\)/, '(' + UCH[c] + ')') : l; }).join('\n');
         sb.disabled = true;
-        save(function(){ S.standbyMin = next; }, function(){ S.standbyMin = prev; });
+        save(function(){ S.standbyMin = next; S.standby = nextT; }, function(){ S.standbyMin = prev; S.standby = prevT; });
       }});
       head.appendChild(sb);
     }
@@ -866,6 +878,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       var pm = it.name.match(/\s*\(([^)]*)\)\s*$/);
       var shown = pm ? it.name.slice(0, pm.index) : it.name;
       var unit = el('span', {class:'u', text:pm ? pm[1] : ''}), right;
+      if (inEdit && pm && /^C:/.test(it.key)){ (function(code){ unit = unitPick(pm[1], function(v){ UCH[code] = v; }); })(it.key.slice(2)); }
       if (inEdit){
         var inp = el('input', {class:'qty', type:'text', inputmode:'decimal', autocomplete:'off', id:id});
         inp.value = cur != null ? cur : '';
@@ -965,6 +978,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     return out.join('\n');
   }
   function itLowestPage(){
+    var UCH = {};
     var box = el('div', {class:'sheet panel'}), fields = [];
     var head = el('div', {class:'sheet-bar'}, el('strong', {text:t('lowest')}));
     var inEdit = ctx.canEdit && ctx.editing;
@@ -973,10 +987,11 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     }
     if (inEdit){
       var sb = el('button', {type:'button', class:'primary', text:t('save'), onclick:function(){
-        var prev = S.itemsMin || {}, next = {};
+        var prev = S.itemsMin || {}, next = {}, prevT = S.items, nextT = prevT;
         fields.forEach(function(f){ var v = f.inp.value.trim(); if (v !== '') next[f.key] = v; });
+        if (Object.keys(UCH).length) nextT = String(prevT).split('\n').map(function(l){ var c = lineCode(l); return (c && UCH[c]) ? l.replace(/[A-Za-z]+\s*$/, UCH[c]) : l; }).join('\n');
         sb.disabled = true;
-        save(function(){ S.itemsMin = next; }, function(){ S.itemsMin = prev; });
+        save(function(){ S.itemsMin = next; S.items = nextT; }, function(){ S.itemsMin = prev; S.items = prevT; });
       }});
       head.appendChild(sb);
     }
@@ -987,6 +1002,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       if (!r.item) return;
       var it = r.item, id = 'il-' + (n++), cur = (S.itemsMin || {})[it.key], right;
       var unit = el('span', {class:'u', text:it.unit});
+      if (inEdit && /^C:/.test(it.key)){ (function(code){ unit = unitPick(it.unit, function(v){ UCH[code] = v; }); })(it.key.slice(2)); }
       if (inEdit){
         var inp = el('input', {class:'qty', type:'text', inputmode:'decimal', autocomplete:'off', id:id});
         inp.value = cur != null ? cur : '';
@@ -1376,9 +1392,23 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     if (s.type === 'salmon') return t('salmonsub');
     return t('itemssub');
   }
+  var MB_INPUTS = [];
   function homeTiles(){
-    var g = el('div', {class:'tiles'});
-    R.data[CUR.name].sections.forEach(function(s){ g.appendChild(tile(secHref(s), secTitle(s), secSub(s))); });
+    var g = el('div', {class:'tiles'}), d = R.data[CUR.name];
+    MB_INPUTS = [];
+    d.sections.forEach(function(s, i){
+      var tl = tile(secHref(s), secTitle(s), secSub(s));
+      if (!(ctx.isOwner && ctx.showMB)){ g.appendChild(tl); return; }
+      var inp = el('input', {class:'qty', type:'text', autocomplete:'off', id:'mb-' + i, 'aria-label':t('mbrename'), style:'flex:1;min-width:150px;text-align:left'});
+      inp.value = secTitle(s); MB_INPUTS[i] = inp;
+      var armed = false, del = el('button', {type:'button', text:t('mbdelete'), onclick:function(){
+        if (!armed){ armed = true; del.textContent = t('mbdelarm'); setTimeout(function(){ armed = false; del.textContent = t('mbdelete'); }, 3000); return; }
+        var prevList = d.sections.slice();
+        ctx.showMB = false;
+        save(function(){ d.sections = d.sections.filter(function(x){ return x !== s; }); }, function(){ d.sections = prevList; });
+      }});
+      g.appendChild(el('div', {}, tl, el('div', {style:'display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 16px'}, inp, del)));
+    });
     return g;
   }
   function blankInst(type){
@@ -1398,12 +1428,12 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     return 's' + (mx + 1);
   }
   function manageButtons(){
-    var d = R.data[CUR.name], wrap = el('div', {}), inputs = [];
+    var d = R.data[CUR.name], wrap = el('div', {});
     function applyAll(){
       var changes = [];
       d.sections.forEach(function(s, i){
-        if (!inputs[i]) return;
-        var v = inputs[i].value.trim().replace(/\s+/g, ' ');
+        if (!MB_INPUTS[i]) return;
+        var v = MB_INPUTS[i].value.trim().replace(/\s+/g, ' ');
         var nv = (v === t(s.type)) ? '' : v;
         if (nv !== (s.name || '')) changes.push({s:s, prev:s.name || '', nv:nv});
       });
@@ -1411,23 +1441,14 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       if (!changes.length){ render(); return; }
       save(function(){ changes.forEach(function(c){ c.s.name = c.nv; }); }, function(){ changes.forEach(function(c){ c.s.name = c.prev; }); });
     }
-    wrap.appendChild(el('div', {class:'bgbar', style:'margin:12px 0'},
-      el('button', {type:'button', class: ctx.showMB ? 'primary' : '', text: ctx.showMB ? t('save') : t('mbtitle'), onclick:function(){ if (ctx.showMB) applyAll(); else { ctx.showMB = true; render(); } }}),
-      el('button', {type:'button', text:t('lpage'), onclick:function(){ go('#labels'); }})));
+    var row = el('div', {class:'bgbar', style:'margin:12px 0'},
+      el('button', {type:'button', class: ctx.showMB ? 'primary' : '', text: ctx.showMB ? t('save') : t('edit'), onclick:function(){ if (ctx.showMB) applyAll(); else { ctx.showMB = true; render(); } }}));
+    if (ctx.showMB) row.appendChild(el('button', {type:'button', text:t('cancel'), onclick:function(){ ctx.showMB = false; render(); }}));
+    wrap.appendChild(row);
     if (!ctx.showMB) return wrap;
     var box = el('div', {class:'sheet panel'});
-    box.appendChild(el('p', {class:'hint', text:t('mbhint')}));
-    d.sections.forEach(function(s, i){
-      var inp = el('input', {class:'qty', type:'text', autocomplete:'off', id:'mb-' + i, style:'width:100%;text-align:left'});
-      inp.value = secTitle(s); inputs[i] = inp;
-      var armed = false, del = el('button', {type:'button', text:t('mbdelete'), onclick:function(){
-        if (!armed){ armed = true; del.textContent = t('mbdelarm'); setTimeout(function(){ armed = false; del.textContent = t('mbdelete'); }, 3000); return; }
-        var prevList = d.sections.slice();
-        save(function(){ d.sections = d.sections.filter(function(x){ return x !== s; }); }, function(){ d.sections = prevList; });
-      }});
-      box.appendChild(el('div', {style:'padding:6px 14px'}, inp, el('div', {style:'display:flex;gap:8px;flex-wrap:wrap;margin-top:6px'}, del)));
-    });
-    box.appendChild(el('div', {class:'grp', text:t('mbtype')}));
+    box.appendChild(el('div', {class:'grp', text:t('mbadd')}));
+    box.appendChild(el('p', {class:'hint', text:t('mbtype')}));
     var types = ['ordering','standby','items','salmon'];
     ctx.addType = ctx.addType || 'ordering';
     var tb = el('div', {class:'langs', style:'padding:6px 14px'});
@@ -1438,13 +1459,15 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     box.appendChild(el('p', {class:'hint', text:t('desc_' + ctx.addType)}));
     var ni = el('input', {class:'qty', type:'text', autocomplete:'off', id:'mb-new', placeholder:t('mbname'), style:'width:100%;text-align:left'});
     box.appendChild(el('div', {style:'padding:6px 14px'}, ni));
-    box.appendChild(el('div', {style:'padding:6px 14px 14px'}, el('button', {type:'button', text:t('mbadd'), onclick:function(){
-      var ty = ctx.addType, nm = ni.value.trim().replace(/\s+/g, ' '), id = nextSecId(d);
-      var sec = {id:id, type:ty, name:(nm === t(ty) ? '' : nm)};
-      ctx.showMB = false;
-      save(function(){ d.sections.push(sec); d.inst[id] = blankInst(ty); },
-           function(){ d.sections = d.sections.filter(function(x){ return x !== sec; }); delete d.inst[id]; });
-    }})));
+    box.appendChild(el('div', {style:'display:flex;gap:8px;flex-wrap:wrap;padding:6px 14px 14px'},
+      el('button', {type:'button', text:t('mbadd'), onclick:function(){
+        var ty = ctx.addType, nm = ni.value.trim().replace(/\s+/g, ' '), id = nextSecId(d);
+        var sec = {id:id, type:ty, name:(nm === t(ty) ? '' : nm)};
+        ctx.showMB = false;
+        save(function(){ d.sections.push(sec); d.inst[id] = blankInst(ty); },
+             function(){ d.sections = d.sections.filter(function(x){ return x !== sec; }); delete d.inst[id]; });
+      }}),
+      el('button', {type:'button', text:t('lpage'), onclick:function(){ ctx.showMB = false; go('#labels'); }})));
     wrap.appendChild(box);
     return wrap;
   }
@@ -1503,25 +1526,54 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       else line = code + '. ' + nm + ': ' + (q || '0') + ' ' + u;
       var v = ta.value; if (v && !/\n$/.test(v)) v += '\n';
       ta.value = v + line;
-      nI.value = ''; qI.value = ''; sync(); msg.textContent = t('codeadded', code);
+      nI.value = ''; qI.value = ''; sync(); msg.textContent = t('codeadded', code); refreshUnits();
       try { ta.scrollTop = ta.scrollHeight; } catch(e){}
     }});
     box.appendChild(el('div', {style:'display:flex;gap:8px;flex-wrap:wrap;padding:6px 14px'}, cI, nI, qI, uS, addB));
-    var cc = el('input', {class:'qty', type:'text', autocomplete:'off', autocapitalize:'characters', placeholder:t('unitcode'), style:'width:100px;text-align:left'});
-    var uS2 = unitSel();
-    var chB = el('button', {type:'button', text:t('unitchg'), onclick:function(){
-      var code = cc.value.trim().toUpperCase(); if (!code) return;
-      var lines = ta.value.split('\n'), done = false, fail = false;
-      lines = lines.map(function(l){
-        if (lineCode(l) !== code) return l;
-        var nl = setUnit(l, uS2.value, path);
-        if (nl === null){ fail = true; return l; }
-        done = true; return nl;
+    var ul = el('div', {style:'max-height:280px;overflow:auto;padding:0 14px 8px'});
+    box.appendChild(el('div', {class:'grp', text:t('unitslabel')}));
+    box.appendChild(ul);
+    function unitSlots(line){
+      var out = [], m;
+      if (/^standby/.test(path)){
+        m = line.match(/\(([^)]*)\)/);
+        if (m) out.push({start:m.index + 1, end:m.index + 1 + m[1].length, unit:m[1].trim()});
+        return out;
+      }
+      m = line.match(/^(.*?:\s*)(.*)$/); if (!m) return out;
+      var off = m[1].length, re = /(\d+(?:\.\d+)?\s*)([A-Za-z]+)/g, u;
+      while ((u = re.exec(m[2])) !== null) out.push({start:off + u.index + u[1].length, end:off + u.index + u[1].length + u[2].length, unit:u[2]});
+      return out;
+    }
+    function refreshUnits(){
+      ul.textContent = '';
+      var lines = ta.value.split('\n'), any = false;
+      lines.forEach(function(line, li){
+        if (!lineCode(line)) return;
+        var slots = unitSlots(line); if (!slots.length) return;
+        any = true;
+        var nm = line.replace(/^\s*"?\s*[A-Za-z]{1,3}\d+\s*[\)\.]\s*/, '').replace(/\s*[:(\-].*$/, '');
+        var row = el('div', {style:'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0'},
+          el('span', {style:'flex:1;min-width:150px', text:lineCode(line) + '  ' + nm}));
+        slots.forEach(function(sl, k){
+          var sel = unitSel(), cur = sl.unit.toLowerCase();
+          if (UNITS5.indexOf(cur) < 0) sel.insertBefore(el('option', {value:cur, text:sl.unit}), sel.firstChild);
+          sel.value = cur;
+          sel.addEventListener('change', function(){
+            var ls = ta.value.split('\n'), s2 = unitSlots(ls[li]);
+            if (!s2[k]) return;
+            ls[li] = ls[li].slice(0, s2[k].start) + sel.value + ls[li].slice(s2[k].end);
+            ta.value = ls.join('\n'); msg.textContent = t('unitdone'); refreshUnits();
+          });
+          row.appendChild(sel);
+        });
+        ul.appendChild(row);
       });
-      if (done){ ta.value = lines.join('\n'); msg.textContent = t('unitdone'); }
-      else msg.textContent = fail ? t('unitfail') : t('codenone');
-    }});
-    box.appendChild(el('div', {style:'display:flex;gap:8px;flex-wrap:wrap;padding:6px 14px'}, cc, uS2, chB));
+      if (!any) ul.appendChild(el('p', {class:'hint', text:t('unitsnone')}));
+    }
+    var rt = null;
+    ta.addEventListener('input', function(){ clearTimeout(rt); rt = setTimeout(refreshUnits, 500); });
+    refreshUnits();
     var dI = el('input', {class:'qty', type:'text', autocomplete:'off', autocapitalize:'characters', placeholder:t('codeto'), style:'width:120px;text-align:left'});
     var armed = false;
     var delB = el('button', {type:'button', text:t('codedel'), onclick:function(){
@@ -1531,46 +1583,68 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       if (keep.length === lines.length){ msg.textContent = t('codenone'); return; }
       if (!armed){ armed = true; delB.textContent = t('codedelarm'); setTimeout(function(){ armed = false; delB.textContent = t('codedel'); }, 3000); return; }
       armed = false; delB.textContent = t('codedel');
-      ta.value = keep.join('\n'); dI.value = ''; sync(); msg.textContent = t('codedeleted');
+      ta.value = keep.join('\n'); dI.value = ''; sync(); msg.textContent = t('codedeleted'); refreshUnits();
     }});
     box.appendChild(el('div', {style:'display:flex;gap:8px;flex-wrap:wrap;padding:6px 14px'}, dI, delB));
     box.appendChild(msg);
     return box;
   }
-  function supplierEditor(){
-    var box = el('div', {class:'sheet panel'});
-    box.appendChild(el('div', {class:'sheet-bar'}, el('strong', {text:t('supedit')})));
-    box.appendChild(el('p', {class:'hint', text:t('suphint')}));
-    function copyWithout(obj, name){ var o = {}; Object.keys(obj).forEach(function(k){ if (k !== name) o[k] = obj[k]; }); return o; }
-    Object.keys(S.schedule).forEach(function(name, i){
-      var inp = el('input', {class:'qty', type:'text', autocomplete:'off', id:'sp-' + i, style:'width:100%;text-align:left'});
-      inp.value = name;
-      var ren = el('button', {type:'button', text:t('mbrename'), onclick:function(){
-        var nv = inp.value.trim().replace(/\s+/g, ' ');
-        if (!nv || nv === name) return;
-        var prev = S.schedule;
-        if (Object.keys(prev).some(function(k){ return k !== name && k.toLowerCase() === nv.toLowerCase(); })){ ctx.status = t('supdup'); ctx.err = true; render(); return; }
-        var next = {}; Object.keys(prev).forEach(function(k){ next[k === name ? nv : k] = prev[k]; });
-        save(function(){ S.schedule = next; }, function(){ S.schedule = prev; });
-      }});
+  var SUP_INPUTS = {};
+  function supplierTiles(){
+    var g = el('div', {class:'tiles'});
+    SUP_INPUTS = {};
+    supsNow().forEach(function(ss, i){
+      var tl = tile('#schedule-' + slug(ss), ss, '', true);
+      if (!(ctx.isOwner && ctx.showSup)){ g.appendChild(tl); return; }
+      var inp = el('input', {class:'qty', type:'text', autocomplete:'off', id:'sp-' + i, 'aria-label':t('mbrename'), style:'flex:1;min-width:150px;text-align:left'});
+      inp.value = ss; SUP_INPUTS[ss] = inp;
       var armed = false, del = el('button', {type:'button', text:t('mbdelete'), onclick:function(){
         if (!armed){ armed = true; del.textContent = t('mbdelarm'); setTimeout(function(){ armed = false; del.textContent = t('mbdelete'); }, 3000); return; }
-        var prev = S.schedule, next = copyWithout(prev, name);
+        var prev = S.schedule, next = {};
+        Object.keys(prev).forEach(function(k){ if (k !== ss) next[k] = prev[k]; });
+        ctx.showSup = false;
         save(function(){ S.schedule = next; }, function(){ S.schedule = prev; });
       }});
-      box.appendChild(el('div', {style:'padding:6px 14px'}, inp, el('div', {style:'display:flex;gap:8px;flex-wrap:wrap;margin-top:6px'}, ren, del)));
+      g.appendChild(el('div', {}, tl, el('div', {style:'display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 16px'}, inp, del)));
     });
-    var ni = el('input', {class:'qty', type:'text', autocomplete:'off', id:'sp-new', placeholder:t('supnew'), style:'width:100%;text-align:left'});
+    return g;
+  }
+  function supplierEditBar(){
+    var wrap = el('div', {});
+    function applyAll(){
+      var prev = S.schedule, next = {}, seen = {}, changed = false, bad = '';
+      Object.keys(prev).forEach(function(k){
+        var inp = SUP_INPUTS[k], nv = inp ? inp.value.trim().replace(/\s+/g, ' ') : k;
+        if (!nv) nv = k;
+        if (seen[nv.toLowerCase()]) bad = t('supdup');
+        seen[nv.toLowerCase()] = 1;
+        if (nv !== k) changed = true;
+        next[nv] = prev[k];
+      });
+      if (bad){ ctx.status = bad; ctx.err = true; render(); return; }
+      ctx.showSup = false;
+      if (!changed){ render(); return; }
+      save(function(){ S.schedule = next; }, function(){ S.schedule = prev; });
+    }
+    var row = el('div', {class:'bgbar', style:'margin:12px 0'},
+      el('button', {type:'button', class: ctx.showSup ? 'primary' : '', text: ctx.showSup ? t('save') : t('edit'), onclick:function(){ if (ctx.showSup) applyAll(); else { ctx.showSup = true; render(); } }}));
+    if (ctx.showSup) row.appendChild(el('button', {type:'button', text:t('cancel'), onclick:function(){ ctx.showSup = false; render(); }}));
+    wrap.appendChild(row);
+    if (!ctx.showSup) return wrap;
+    var box = el('div', {class:'sheet panel'});
     box.appendChild(el('div', {class:'grp', text:t('supadd')}));
+    var ni = el('input', {class:'qty', type:'text', autocomplete:'off', id:'sp-new', placeholder:t('supnew'), style:'width:100%;text-align:left'});
     box.appendChild(el('div', {style:'padding:6px 14px'}, ni));
-    box.appendChild(el('div', {style:'padding:6px 14px 14px'}, el('button', {type:'button', class:'primary', text:t('supadd'), onclick:function(){
+    box.appendChild(el('div', {style:'padding:6px 14px 14px'}, el('button', {type:'button', text:t('supadd'), onclick:function(){
       var nv = ni.value.trim().replace(/\s+/g, ' '); if (!nv) return;
       var prev = S.schedule;
       if (Object.keys(prev).some(function(k){ return k.toLowerCase() === nv.toLowerCase(); })){ ctx.status = t('supdup'); ctx.err = true; render(); return; }
       var next = Object.assign({}, prev); next[nv] = '';
+      ctx.showSup = false;
       save(function(){ S.schedule = next; }, function(){ S.schedule = prev; });
     }})));
-    return box;
+    wrap.appendChild(box);
+    return wrap;
   }
   function fbErr(e){
     var c = e && e.code || '';
@@ -1935,10 +2009,8 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       if (!s){
         kids.push(crumbs([{label:'Home', href:'#'}, {label:'Ordering Schedule'}]));
         kids.push(el('h2', {text:secName('schedule')}));
-        var g2 = el('div', {class:'tiles'});
-        supsNow().forEach(function(ss){ g2.appendChild(tile('#schedule-' + slug(ss), ss, '', true)); });
-        kids.push(g2);
-        if (ctx.isOwner) kids.push(supplierEditor());
+        kids.push(supplierTiles());
+        if (ctx.isOwner) kids.push(supplierEditBar());
       } else {
         kids.push(crumbs([{label:'Home', href:'#'}, {label:'Ordering Schedule', href:'#schedule'}, {label:s}]));
         kids.push(el('h2', {text:s}));
