@@ -415,6 +415,8 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     coderest2:{en:'Item name (unit)-',my:'ပစ္စည်းအမည် (unit)-'},
     coderest3:{en:'Item name: 0 unit',my:'ပစ္စည်းအမည်: 0 unit'},
     codeadd:{en:'Add code',my:'ကုဒ်ထည့်ရန်'},
+    addtext:{en:'Text line',my:'စာကြောင်း'},
+    codedelpick:{en:'Tap a line first, then tap ✕ to delete it.',my:'ဖျက်ချင်တဲ့ စာကြောင်းကို အရင်နှိပ်ပြီးမှ ✕ ကို နှိပ်ပါ။'},
     codedel:{en:'Delete code',my:'ကုဒ်ဖျက်ရန်'},
     codedelarm:{en:'Tap again to delete',my:'ဖျက်ရန် ထပ်နှိပ်ပါ'},
     codeto:{en:'Code to delete',my:'ဖျက်မည့်ကုဒ်'},
@@ -1562,6 +1564,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       while ((u = re.exec(m[2])) !== null) out.push({start:off + u.index + u[1].length, end:off + u.index + u[1].length + u[2].length, unit:u[2]});
       return out;
     }
+    var SEL = -1;
     function build(){
       wrap.textContent = '';
       rows.forEach(function(r, i){
@@ -1580,36 +1583,37 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
           });
           line.appendChild(ci);
           line.appendChild(ti);
-          unitSlots(r.text).forEach(function(sl, k){
-            var sel = unitSel(), cur = sl.unit.toLowerCase();
-            if (UNITS5.indexOf(cur) < 0) sel.insertBefore(el('option', {value:cur, text:sl.unit}), sel.firstChild);
-            sel.value = cur;
-            sel.addEventListener('change', function(){
-              var s2 = unitSlots(r.text); if (!s2[k]) return;
-              r.text = r.text.slice(0, s2[k].start) + sel.value + r.text.slice(s2[k].end);
-              sync(); build();
-            });
-            line.appendChild(sel);
-          });
-          line.appendChild(el('button', {type:'button', text:'＋', 'aria-label':t('codeadd'), onclick:function(){
-            var letter = codeLetterFor(ta.value, path), code = nextCode(ta.value, letter), txt;
-            if (/^standby/.test(path)) txt = ' (pkt)-';
-            else if (/^(minmax|balance)/.test(path)) txt = ' :';
-            else txt = ': 0 pkt';
-            rows.splice(i + 1, 0, {lead:'', code:code, sep:'.', text:txt.replace(/^ /, '')});
-            sync(); build();
-          }}));
-          var armed = false, del = el('button', {type:'button', text:'✕', 'aria-label':t('codedel'), onclick:function(){
-            if (!armed){ armed = true; del.textContent = '✕?'; setTimeout(function(){ armed = false; del.textContent = '✕'; }, 3000); return; }
-            rows.splice(i, 1); sync(); build();
-          }});
-          line.appendChild(del);
+          ci.addEventListener('focus', function(){ SEL = i; });
+          ti.addEventListener('focus', function(){ SEL = i; });
         } else {
           ti.style.fontWeight = '600';
+          ti.addEventListener('focus', function(){ SEL = i; });
           line.appendChild(ti);
         }
         wrap.appendChild(line);
       });
+      var bar = el('div', {style:'display:flex;gap:10px;margin:10px 0 4px'});
+      bar.appendChild(el('button', {type:'button', text:'＋', 'aria-label':t('codeadd'), onclick:function(){
+        var code = nextCode(ta.value, codeLetterFor(ta.value, path)), txt;
+        if (/^standby/.test(path)) txt = '(pkt)-';
+        else if (/^(minmax|balance)/.test(path)) txt = ':';
+        else txt = ': 0 pkt';
+        var at = SEL >= 0 ? SEL + 1 : rows.length; rows.splice(at, 0, {lead:'', code:code, sep:'.', text:txt}); SEL = at;
+        sync(); build();
+        try { var ins = wrap.querySelectorAll('input[aria-label=Code]'); var last = Array.prototype.filter.call(ins, function(x){ return x.value === code; })[0]; var f = last.parentNode.querySelectorAll('input')[1]; f.focus(); f.setSelectionRange(0, 0); } catch(e){}
+      }}));
+      bar.appendChild(el('button', {type:'button', text:'＋ ' + t('addtext'), onclick:function(){
+        var at = SEL >= 0 ? SEL + 1 : rows.length; rows.splice(at, 0, {code:null, text:''}); SEL = at; sync(); build();
+        try { wrap.querySelectorAll('input')[0]; var all = wrap.querySelectorAll('.qty:not([aria-label=Code])'); var cnt = 0; for (var q = 0; q < at; q++) cnt++; all[at].focus(); } catch(e){}
+      }}));
+      var armed = false, del = el('button', {type:'button', text:'✕', 'aria-label':t('codedel'), onclick:function(){
+        var r = rows[SEL];
+        if (!r){ msg.textContent = t('codedelpick'); return; }
+        if (!armed){ armed = true; del.textContent = '✕ ' + (r.code || '') + '?'; setTimeout(function(){ armed = false; del.textContent = '✕'; }, 3000); return; }
+        rows.splice(SEL, 1); SEL = -1; sync(); build();
+      }});
+      bar.appendChild(del);
+      wrap.appendChild(bar);
       wrap.appendChild(msg);
     }
     build();
