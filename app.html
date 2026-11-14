@@ -164,7 +164,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
         var rest = m[3], nm = kind === 'sb' ? rest.split('-')[0] : rest.split(':')[0];
         var n = parseInt(m[2], 10), code = letter + (n < 10 ? '0' + n : n);
         map[ikey(m[2] + '. ', '', nm.trim())] = 'C:' + code; any = true;
-        return m[1] + code + '. ' + rest;
+        return m[1] + code + '. ' + m[2] + '. ' + rest;
       });
       if (!any) return text;
       var mm = d[minKey] || {}, nm2 = {};
@@ -1096,8 +1096,8 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
   function noCodes(text){
     var n = 0;
     return String(text).split('\n').map(function(l){
-      var m = l.match(/^(\s*"?\s*)[A-Za-z]{1,3}\d+\s*[\)\.]\s*(.*)$/);
-      if (m){ n++; return n + '. ' + m[2]; }
+      var m = l.match(/^(\s*"?\s*)[A-Za-z]{1,3}(\d+)\s*[\)\.]\s*(.*)$/);
+      if (m){ return m[3]; }
       if (l.trim() !== '') n = 0;
       return l;
     }).join('\n');
@@ -1106,7 +1106,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     var txt = noCodes(arr.map(function(x){ return x.t; }).join('\n')).split('\n');
     return arr.map(function(x, i){ return {t:txt[i], need:x.need}; });
   }
-  function cpre(prefix){ var c = codeOf(prefix); return (ctx.isOwner && c) ? c + ' ' : ''; }
+  function cpre(prefix){ var m = String(prefix).match(/[A-Za-z]{1,3}(\d+)/); if (!m) return ''; return ctx.isOwner ? codeOf(prefix) + ' ' : ''; }
   function applyHead(text, withName){
     return noCodes(String(text)).split('\n').map(function(line){
       if (ctx.sbDate && /^\s*date\s*:/i.test(line)) return line.replace(/^(\s*date\s*:).*$/i, '$1 ' + ctx.sbDate);
