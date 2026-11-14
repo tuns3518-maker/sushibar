@@ -613,7 +613,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       bar.appendChild(el('div', {class:'btns'}, cancel, saveBtn));
       box.appendChild(bar);
       box.appendChild(ta);
-      if (/^(minmax|balance|standby|itemsbal|itemsorder|salmon)/.test(path)){ ta.style.display = 'none'; box.appendChild(rowsEditor(ta, path)); }
+      if (/^(minmax|balance|standby|itemsbal|itemsorder|salmon|order)/.test(path)){ ta.style.display = 'none'; box.appendChild(rowsEditor(ta, path)); }
     } else {
       var shownNC = function(){ return noCodes(shown()); };
       pre = el('pre', {class:'txt', id:'sheet-text', text:ctx.isOwner ? shown() : shownNC()});
@@ -868,10 +868,9 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     pre.replaceChildren(frag);
   }
   function unitPick(cur, onPick){
-    var s = unitSel(), c = String(cur || '').toLowerCase();
-    if (c && UNITS5.indexOf(c) < 0) s.insertBefore(el('option', {value:c, text:cur}), s.firstChild);
-    if (c) s.value = c;
-    s.addEventListener('change', function(){ onPick(s.value); });
+    var s = el('input', {class:'qty', type:'text', autocomplete:'off', autocapitalize:'none', 'aria-label':'Unit', style:'width:84px;text-align:left'});
+    s.value = String(cur || '');
+    s.addEventListener('input', function(){ var v = s.value.trim(); if (/^[A-Za-z]+$/.test(v)) onPick(v); });
     return s;
   }
   function lowestPage(){
@@ -1546,7 +1545,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
   function rowsEditor(ta, path){
     var wrap = el('div', {class:'sheet panel', style:'padding:8px 10px'});
     var msg = el('p', {class:'hint', text:''});
-    var CRE = /^(\s*"?\s*)([A-Za-z]{1,3}\d+)\s*([.)])\s?(.*)$/;
+    var CRE = /^(\s*"?\s*)([A-Za-z]{0,3}\d+)\s*([.)])\s?(.*)$/, HIDE = /^salmon/.test(path), NUMERIC = path === 'order';
     var rows = ta.value.split('\n').map(function(l){
       var m = l.match(CRE);
       return m ? {lead:m[1], code:m[2].toUpperCase(), sep:m[3], text:m[4]} : {code:null, text:l};
@@ -1577,11 +1576,11 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
           ci.value = r.code;
           ci.addEventListener('change', function(){
             var v = ci.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-            if (!/^[A-Z]{1,3}\d+$/.test(v)){ ci.value = r.code; msg.textContent = t('codebad'); return; }
+            if (!(NUMERIC ? /^[A-Z]{0,3}\d+$/ : /^[A-Z]{1,3}\d+$/).test(v)){ ci.value = r.code; msg.textContent = t('codebad'); return; }
             if (rows.some(function(o, j){ return j !== i && o.code === v; })){ ci.value = r.code; msg.textContent = t('codedup'); return; }
             r.code = v; ci.value = v; msg.textContent = ''; sync();
           });
-          line.appendChild(ci);
+          if (!HIDE) line.appendChild(ci);
           line.appendChild(ti);
           ci.addEventListener('focus', function(){ SEL = i; });
           ti.addEventListener('focus', function(){ SEL = i; });
@@ -1594,11 +1593,13 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       });
       var bar = el('div', {style:'display:flex;gap:10px;margin:10px 0 4px'});
       bar.appendChild(el('button', {type:'button', text:'＋', 'aria-label':t('codeadd'), onclick:function(){
-        var code = nextCode(ta.value, codeLetterFor(ta.value, path)), txt;
+        var code, txt, psep = '.';
+        if (NUMERIC){ var mx = 0; rows.forEach(function(o){ if (o.code !== null){ var nn = parseInt(String(o.code).replace(/^[A-Z]+/, ''), 10); if (nn > mx) mx = nn; psep = o.sep; } }); code = String(mx + 1); }
+        else code = nextCode(ta.value, codeLetterFor(ta.value, path));
         if (/^standby/.test(path)) txt = '(pkt)-';
-        else if (/^(minmax|balance)/.test(path)) txt = ':';
+        else if (/^(minmax|balance|order)/.test(path)) txt = ':';
         else txt = ': 0 pkt';
-        var at = SEL >= 0 ? SEL + 1 : rows.length; rows.splice(at, 0, {lead:'', code:code, sep:'.', text:txt}); SEL = at;
+        var at = SEL >= 0 ? SEL + 1 : rows.length; rows.splice(at, 0, {lead:'', code:code, sep:psep, text:txt}); SEL = at;
         sync(); build();
         try { var ins = wrap.querySelectorAll('input[aria-label=Code]'); var last = Array.prototype.filter.call(ins, function(x){ return x.value === code; })[0]; var f = last.parentNode.querySelectorAll('input')[1]; f.focus(); f.setSelectionRange(0, 0); } catch(e){}
       }}));
