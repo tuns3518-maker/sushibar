@@ -421,6 +421,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     stNoOrder:{en:'No Order',my:'မမှာရ'},
     stCheck:{en:'Need Check',my:'စစ်ရမည်'},
     stNoCheck:{en:'No Need Check',my:'မစစ်ရ'},
+    done:{en:'Done',my:'ပြီးပြီ'},
     pickhint:{en:'Code letter: tap a letter to change every code on this day (A01, A02 … → C01, C02 …). Press Save to apply to all days.',my:'ကုဒ်စာလုံး: စာလုံးကိုနှိပ်ရင် ဒီနေ့က ကုဒ်အားလုံး (A01, A02 … → C01, C02 …) ပြောင်းပါမယ်။ Save နှိပ်ရင် ရက်အားလုံးမှာ ပြောင်းပါမယ်။'},
     pickdone:{en:'Changed to {n}. Press Save.',my:'{n} ပြောင်းပြီး။ Save နှိပ်ပါ။'},
     pickhave:{en:'Already on this day.',my:'ဒီနေ့မှာ ရှိပြီးသားပါ။'},
@@ -520,6 +521,11 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     if (on){ next = (st[k] != null && st[k] !== '') ? st[k] : ((CUR.name || '') + '\nDATE:\n'); delete st[k]; }
     else { if (!dayOff(sec, d)) st[k] = prev; next = sec === 'minmax' ? 'Not need order' : 'Not need checking'; }
     save(function(){ data[d] = next; S.stash = st; }, function(){ data[d] = prev; S.stash = prevSt; });
+  }
+  function dayEditOn(){ return !!ctx.dayEdit && ctx.dayEditAt === location.hash; }
+  function dayEditBtn(){
+    if (!ctx.isOwner) return null;
+    return el('div', {class:'bgbar', style:'margin:10px 0'}, el('button', {type:'button', class: dayEditOn() ? 'primary' : '', text: dayEditOn() ? t('done') : t('edit'), onclick:function(){ ctx.dayEdit = !dayEditOn(); ctx.dayEditAt = location.hash; render(); }}));
   }
   function dayToggle(sec, d){
     var off = dayOff(sec, d), a = sec === 'minmax' ? t('stOrder') : t('stCheck'), b = sec === 'minmax' ? t('stNoOrder') : t('stNoCheck');
@@ -906,7 +912,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     var hp = el('div', {class:'sheet panel'}); headRows(hp, false, refreshOrderTexts); out.push(hp);
     out.push(el('p', {class:'hint', text:t('orderday') + ' · ' + t('formula')}));
     out.push(pick);
-    out.push(el('div', {class:'sheet panel', style:'padding:8px 12px'}, el('div', {class:'hint', text:dayLabel(D) + ' · ' + (dayOff('minmax', D) ? t('stNoOrder') : t('stOrder'))}), ctx.isOwner ? dayToggle('minmax', D) : null));
+    out.push(el('div', {class:'sheet panel', style:'padding:8px 12px'}, el('div', {class:'hint', text:dayLabel(D) + ' · ' + (dayOff('minmax', D) ? t('stNoOrder') : t('stOrder'))}), dayEditBtn(), (ctx.isOwner && dayEditOn()) ? dayToggle('minmax', D) : null));
     var list = el('div', {class:'sheet panel'});
     if (!rows.length){
       list.appendChild(el('p', {class:'hint', text:t('noorderday')}));
@@ -2287,8 +2293,9 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
         DAYS.forEach(function(dd){
           var none = dayOff(r.sec, dd);
           var lbl = r.sec === 'minmax' ? t('stNoOrder') : t('stNoCheck');
-          g.appendChild(el('div', {}, tile('#' + r.sec + '-' + slug(dd), dayLabel(dd), '', true, none ? lbl : null), ctx.isOwner ? dayToggle(r.sec, dd) : null));
+          g.appendChild(el('div', {}, tile('#' + r.sec + '-' + slug(dd), dayLabel(dd), '', true, none ? lbl : null), (ctx.isOwner && dayEditOn()) ? dayToggle(r.sec, dd) : null));
         });
+        var deb = dayEditBtn(); if (deb) kids.push(deb);
         kids.push(g);
       } else {
         kids.push(crumbs([{label:'Home', href:'#'}, {label:secName('ordering'), href:'#ordering'}, {label:sectionNames[r.sec], href:'#' + r.sec}, {label:d}]));
