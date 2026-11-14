@@ -416,6 +416,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     coderest3:{en:'Item name: 0 unit',my:'ပစ္စည်းအမည်: 0 unit'},
     codeadd:{en:'Add code',my:'ကုဒ်ထည့်ရန်'},
     addtext:{en:'Text line',my:'စာကြောင်း'},
+    gutterhint:{en:'Tap a box on the left and type the code yourself. Leave it empty for a line without a code.',my:'ဘယ်ဘက်က အကွက်ကို နှိပ်ပြီး ကုဒ်ကို ကိုယ်တိုင် ရိုက်ထည့်ပါ။ ကုဒ်မလိုတဲ့ စာကြောင်းဆိုရင် အလွတ်ထားပါ။'},
     codedelpick:{en:'Tap a line first, then tap ✕ to delete it.',my:'ဖျက်ချင်တဲ့ စာကြောင်းကို အရင်နှိပ်ပြီးမှ ✕ ကို နှိပ်ပါ။'},
     codedel:{en:'Delete code',my:'ကုဒ်ဖျက်ရန်'},
     codedelarm:{en:'Tap again to delete',my:'ဖျက်ရန် ထပ်နှိပ်ပါ'},
@@ -613,7 +614,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       bar.appendChild(el('div', {class:'btns'}, cancel, saveBtn));
       box.appendChild(bar);
       box.appendChild(ta);
-      if (/^(minmax|balance|standby|itemsbal|itemsorder|salmon|order)/.test(path)){ ta.style.display = 'none'; box.appendChild(rowsEditor(ta, path)); }
+      if (/^(minmax|balance|standby|itemsbal|itemsorder|salmon|order)/.test(path)){ ta.style.display = 'none'; box.appendChild(gutterEditor(ta, path)); }
     } else {
       var shownNC = function(){ return noCodes(shown()); };
       pre = el('pre', {class:'txt', id:'sheet-text', text:ctx.isOwner ? shown() : shownNC()});
@@ -1541,6 +1542,85 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     var pairs = m[2].match(/\d+(?:\.\d+)?\s*[A-Za-z]+/g);
     if (!pairs || pairs.length !== 1) return null;
     return m[1] + m[2].replace(/(\d+(?:\.\d+)?\s*)[A-Za-z]+/, '$1' + u);
+  }
+  function gutterEditor(ta, path){
+    var NUM = (path === 'order'), HIDE = /^salmon/.test(path), LH = 34, PADT = 6;
+    var CRE = NUM ? /^(\s*)(\d+)\s*([.)])\s?(.*)$/ : /^(\s*"?\s*)([A-Za-z]{1,3}\d+)\s*([.)])\s?(.*)$/;
+    var lines = [], codes = [], seps = [], leads = [];
+    function parse(v){
+      lines = []; codes = []; seps = []; leads = [];
+      String(v).split('\n').forEach(function(l){
+        var m = l.match(CRE);
+        if (m){ leads.push(m[1]); codes.push(m[2].toUpperCase()); seps.push(m[3]); lines.push(m[4]); }
+        else { leads.push(''); codes.push(null); seps.push(NUM ? ')' : '.'); lines.push(l); }
+      });
+    }
+    parse(ta.value);
+    var wrap = el('div', {class:'sheet panel', style:'padding:0'});
+    var msg = el('p', {class:'hint', text:HIDE ? '' : t('gutterhint')});
+    var row = el('div', {style:'display:flex;align-items:flex-start'});
+    var gut = el('div', {style:'flex:0 0 ' + (HIDE ? 0 : 70) + 'px;padding:' + (PADT + 3) + 'px 0 0 8px;box-sizing:border-box'});
+    var tx = el('textarea', {class:'txt', spellcheck:'false', wrap:'off', 'aria-label':t('edit')});
+    tx.style.cssText = 'flex:1;width:auto;min-width:0;white-space:pre;overflow-x:auto;overflow-y:hidden;resize:none;min-height:0;border-radius:0;line-height:' + LH + 'px;padding:' + PADT + 'px 10px';
+    tx.value = lines.join('\n');
+    function nextAny(){
+      if (NUM){ var mx = 0; codes.forEach(function(c){ if (c && /^\d+$/.test(c)) mx = Math.max(mx, parseInt(c, 10)); }); return String(mx + 1); }
+      return nextCode(ta.value, codeLetterFor(ta.value, path));
+    }
+    function sync(){
+      if (HIDE){
+        var cnt = 0;
+        lines.forEach(function(l, i){
+          if (!codes[i] && /:/.test(l) && !/^\s*(outlet|name|date|balance)\b/i.test(l)){
+            var tmp = lines.map(function(x, k){ return codes[k] ? codes[k] + '. ' + x : x; }).join('\n');
+            codes[i] = nextCode(tmp, 'F'); seps[i] = '.'; leads[i] = '';
+          }
+        });
+      }
+      ta.value = lines.map(function(l, i){ return codes[i] ? leads[i] + codes[i] + seps[i] + ' ' + l : l; }).join('\n');
+    }
+    function fit(){ tx.style.height = (lines.length * LH + PADT * 2 + 4) + 'px'; }
+    function buildGut(){
+      gut.textContent = '';
+      if (HIDE) return;
+      lines.forEach(function(l, i){
+        var ci = el('input', {type:'text', autocomplete:'off', autocapitalize:'characters', 'aria-label':'Code', placeholder:''});
+        ci.style.cssText = 'display:block;box-sizing:border-box;width:58px;height:' + (LH - 6) + 'px;min-height:0;margin:0 0 6px;padding:0 4px;font:600 13px var(--mono);text-align:center;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)';
+        ci.value = codes[i] || '';
+        function paint(){ ci.style.borderColor = ci.value ? 'var(--line)' : 'transparent'; ci.style.background = ci.value ? 'var(--bg)' : 'transparent'; }
+        paint(); ['focus', 'input', 'blur'].forEach(function(ev){ ci.addEventListener(ev, function(){ setTimeout(paint, 0); }); });
+        var pre = false;
+        ci.addEventListener('input', function(){ pre = false; });
+        ci.addEventListener('blur', function(){
+          var v = ci.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+          if (pre && ci.value === nextAny()){ ci.value = ''; v = ''; }
+          if (v === ''){ codes[i] = null; ci.value = ''; msg.textContent = ''; sync(); return; }
+          var ok = NUM ? /^\d+$/.test(v) : /^[A-Z]{1,3}\d+$/.test(v);
+          if (!ok){ ci.value = codes[i] || ''; msg.textContent = t('codebad'); return; }
+          if (!NUM && codes.some(function(c, k){ return k !== i && c === v; })){ ci.value = codes[i] || ''; msg.textContent = t('codedup'); return; }
+          codes[i] = v; ci.value = v; msg.textContent = ''; sync();
+        });
+        gut.appendChild(ci);
+      });
+    }
+    tx.addEventListener('input', function(){
+      var nl = tx.value.split('\n'), ol = lines, k = nl.length - ol.length;
+      if (k !== 0){
+        var p = 0; while (p < ol.length && p < nl.length && ol[p] === nl[p]) p++;
+        if (k > 0){
+          var at = p + (nl[p] !== undefined && p < ol.length && nl[p].length < ol[p].length ? 1 : (p < ol.length && nl[p] !== ol[p] ? 1 : 0));
+          for (var q = 0; q < k; q++){ codes.splice(at, 0, null); seps.splice(at, 0, NUM ? ')' : '.'); leads.splice(at, 0, ''); }
+        } else {
+          var rm = -k, at2 = (p < nl.length && nl[p].indexOf(ol[p]) === 0 && nl[p].length > ol[p].length) ? p + 1 : p;
+          codes.splice(at2, rm); seps.splice(at2, rm); leads.splice(at2, rm);
+        }
+        lines = nl; fit(); sync(); buildGut();
+      } else { lines = nl; sync(); }
+    });
+    row.appendChild(gut); row.appendChild(tx);
+    wrap.appendChild(row); wrap.appendChild(msg);
+    fit(); buildGut(); sync();
+    return wrap;
   }
   function rowsEditor(ta, path){
     var wrap = el('div', {class:'sheet panel', style:'padding:8px 10px'});
