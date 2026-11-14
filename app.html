@@ -152,6 +152,27 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     d.order = d.order || ''; d.standby = d.standby || '';
     if (!d.sections || !d.sections.length) d.sections = defaultSections();
     d.inst = d.inst || {};
+    try { migrateCodes(d); } catch(e){}
+  }
+  function migrateCodes(d){
+    function conv(text, letter, minKey, kind){
+      var lines = String(text || '').split('\n');
+      if (lines.some(function(l){ return lineCode(l); })) return text;
+      var map = {}, any = false;
+      var out = lines.map(function(l){
+        var m = l.match(/^(\s*)(\d+)\s*[.)]\s*(.*)$/); if (!m) return l;
+        var rest = m[3], nm = kind === 'sb' ? rest.split('-')[0] : rest.split(':')[0];
+        var n = parseInt(m[2], 10), code = letter + (n < 10 ? '0' + n : n);
+        map[ikey(m[2] + '. ', '', nm.trim())] = 'C:' + code; any = true;
+        return m[1] + code + '. ' + rest;
+      });
+      if (!any) return text;
+      var mm = d[minKey] || {}, nm2 = {};
+      Object.keys(mm).forEach(function(k){ nm2[map[k] || k] = mm[k]; });
+      d[minKey] = nm2; return out.join('\n');
+    }
+    d.standby = conv(d.standby, 'S', 'standbyMin', 'sb');
+    d.items = conv(d.items, 'I', 'itemsMin', 'it');
   }
   function defaultSections(){ return ['ordering','schedule','standby','salmon','items'].map(function(ty){ return {id:ty, type:ty, name:''}; }); }
   R.outlets.forEach(normOutlet);
@@ -592,11 +613,12 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       if (/^(minmax|balance|standby|itemsbal|itemsorder|salmon)/.test(path)) box.appendChild(codeTools(ta, path));
       box.appendChild(ta);
     } else {
-      pre = el('pre', {class:'txt', id:'sheet-text', text:shown()});
-      var copy = el('button', {type:'button', class:'primary', text:t('copy'), onclick:function(){ copyFrom(shown(), pre, copy); }});
+      var shownNC = function(){ return noCodes(shown()); };
+      pre = el('pre', {class:'txt', id:'sheet-text', text:ctx.isOwner ? shown() : shownNC()});
+      var copy = el('button', {type:'button', class:'primary', text:t('copy'), onclick:function(){ copyFrom(shownNC(), pre, copy); }});
       var onlyEdit = /^(minmax|sch)/.test(path);
       var btns = el('div', {class:'btns'});
-      if (!onlyEdit){ btns.appendChild(copy); btns.appendChild(shareTextBtn(shown, (path === 'order' || path === 'itemsorder') ? 'sharetext' : 'sendbal')); }
+      if (!onlyEdit){ btns.appendChild(copy); btns.appendChild(shareTextBtn(shownNC, (path === 'order' || path === 'itemsorder') ? 'sharetext' : 'sendbal')); }
       if (ctx.canEdit) btns.appendChild(el('button', {type:'button', text:t('edit'), onclick:function(){ ctx.editing = true; ctx.status = ''; render(); }}));
       bar.appendChild(el('span', {class:'note', text: ctx.canEdit ? t('savedall') : t('readonly')}));
       bar.appendChild(btns);
@@ -744,7 +766,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
         saveBal(); onChange();
       });
       panel.appendChild(el('label', {class:'frow', 'for':id},
-        el('span', {class:'n', text:(codeOf(it.prefix) ? codeOf(it.prefix) + '  ' : '') + it.name}),
+        el('span', {class:'n', text:cpre(it.prefix) + it.name}),
         el('span', {class:'f'}, inp, el('span', {class:'u', text:u}))));
     });
     panel.appendChild(el('p', {class:'hint', text:t('devnote')}));
@@ -757,7 +779,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       if (!r.item) return;
       var q = qtyOf(r.item.rest); if (!q) return;
       var b = bal[r.item.key];
-      rows.push({sup:r.sup, name:(codeOf(r.item.prefix) ? codeOf(r.item.prefix) + '  ' : '') + r.item.name, q:q, b:(b == null ? null : b), o:(b == null ? null : Math.max(0, q.n - b))});
+      rows.push({sup:r.sup, name:cpre(r.item.prefix) + r.item.name, q:q, b:(b == null ? null : b), o:(b == null ? null : Math.max(0, q.n - b))});
     });
     var out = [el('h3', {class:'h3', text:t('autoorder')})];
     var pick = el('div', {class:'langs', role:'group', 'aria-label':t('orderday')});
@@ -823,14 +845,14 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     return v != null && m != null && v <= m;
   }
   function standbyLines(text){
-    return sbScan(text).map(function(r){
+    return noCodesLines(sbScan(text).map(function(r){
       if (r.date) return {t:'Date: ' + ctx.sbDate, need:false};
       if (!r.item) return {t:r.line, need:false};
       var v = STB[r.item.key];
       if (v == null || String(v).trim() === '') return {t:r.line, need:false};
       var nd = needOf(r.item.key);
       return {t:r.item.prefix + r.item.name + '- ' + v + (nd ? ' 🔴🔴' : ''), need:nd};
-    });
+    }));
   }
   function standbyFilled(text){ return standbyLines(text).map(function(x){ return x.t; }).join('\n'); }
   function paintStandby(pre){
@@ -887,7 +909,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       } else {
         right = el('span', {class:'f'}, el('span', {class:'ro', text:cur != null && cur !== '' ? cur : '–'}), unit);
       }
-      box.appendChild(el('label', {class:'frow', 'for':id}, el('span', {class:'n', text:shown}), right));
+      box.appendChild(el('label', {class:'frow', 'for':id}, el('span', {class:'n', text:cpre(it.prefix) + shown}), right));
     });
     return box;
   }
@@ -914,7 +936,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       inp.value = STB[k] != null ? STB[k] : '';
       var tag = el('span', {class:'tag', text:'🔴🔴'});
       var row = el('label', {class:'frow', 'for':id},
-        el('span', {class:'n'}, shown, tag),
+        el('span', {class:'n'}, cpre(it.prefix) + shown, tag),
         el('span', {class:'f'}, inp, el('span', {class:'u', text:pm ? pm[1] : ''})));
       var mark = function(){ var nd = needOf(k); row.classList.toggle('low', nd); inp.classList.toggle('low', nd); };
       mark();
@@ -949,12 +971,12 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     return v != null && m != null && v <= m;
   }
   function itBalLines(){
-    return itScan(S.items).map(function(r){
+    return noCodesLines(itScan(S.items).map(function(r){
       if (!r.item) return {t:r.line, need:false};
       var v = ITB[r.item.key], has = v != null && String(v).trim() !== '';
       var nd = has && itNeed(r.item.key);
       return {t:r.item.prefix + r.item.name + ': ' + (has ? String(v).trim() : '0') + ' ' + r.item.unit + (nd ? ' 🔴🔴' : ''), need:nd};
-    });
+    }));
   }
   function itBalText(){ return itBalLines().map(function(x){ return x.t; }).join('\n'); }
   function paintItems(pre){
@@ -975,7 +997,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       var q = ITO[r.item.key]; q = (q == null || String(q).trim() === '') ? '0' : String(q).trim();
       out.push((codeOf(r.item.prefix) ? r.item.prefix : (++n) + '. ') + r.item.name + ': ' + q + ' ' + r.item.unit);
     });
-    return out.join('\n');
+    return noCodes(out.join('\n'));
   }
   function itLowestPage(){
     var UCH = {};
@@ -1011,7 +1033,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       } else {
         right = el('span', {class:'f'}, el('span', {class:'ro', text:cur != null && cur !== '' ? cur : '–'}), unit);
       }
-      box.appendChild(el('label', {class:'frow', 'for':id}, el('span', {class:'n', text:it.prefix.replace(/\s+$/, '') + ' ' + it.name}), right));
+      box.appendChild(el('label', {class:'frow', 'for':id}, el('span', {class:'n', text:cpre(it.prefix) + it.name}), right));
     });
     return box;
   }
@@ -1030,7 +1052,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       inp.value = ITB[k] != null ? ITB[k] : '';
       var tag = el('span', {class:'tag', text:'🔴🔴'});
       var row = el('label', {class:'frow', 'for':id},
-        el('span', {class:'n'}, it.prefix.replace(/\s+$/, '') + ' ' + it.name, tag),
+        el('span', {class:'n'}, cpre(it.prefix) + it.name, tag),
         el('span', {class:'f'}, inp, el('span', {class:'u', text:it.unit})));
       var mark = function(){ var nd = itNeed(k) && String(ITB[k] == null ? '' : ITB[k]).trim() !== ''; row.classList.toggle('low', nd); inp.classList.toggle('low', nd); };
       mark();
@@ -1056,7 +1078,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       inp.value = ITO[k] != null ? ITO[k] : '';
       inp.setAttribute('aria-label', t('itqty') + ' ' + it.name);
       panel.appendChild(el('label', {class:'frow low', 'for':id},
-        el('span', {class:'n'}, it.prefix.replace(/\s+$/, '') + ' ' + it.name, el('span', {class:'tag', text:'🔴🔴'})),
+        el('span', {class:'n'}, cpre(it.prefix) + it.name, el('span', {class:'tag', text:'🔴🔴'})),
         el('span', {class:'f'}, inp, el('span', {class:'u', text:it.unit}))));
       inp.addEventListener('input', function(){
         var v = inp.value.trim();
@@ -1071,8 +1093,22 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
 
   /* ---------- name + date fields ---------- */
   try { ctx.userName = localStorage.getItem('pngName') || ''; } catch(e){ ctx.userName = ''; }
+  function noCodes(text){
+    var n = 0;
+    return String(text).split('\n').map(function(l){
+      var m = l.match(/^(\s*"?\s*)[A-Za-z]{1,3}\d+\s*[\)\.]\s*(.*)$/);
+      if (m){ n++; return n + '. ' + m[2]; }
+      if (l.trim() !== '') n = 0;
+      return l;
+    }).join('\n');
+  }
+  function noCodesLines(arr){
+    var txt = noCodes(arr.map(function(x){ return x.t; }).join('\n')).split('\n');
+    return arr.map(function(x, i){ return {t:txt[i], need:x.need}; });
+  }
+  function cpre(prefix){ var c = codeOf(prefix); return (ctx.isOwner && c) ? c + ' ' : ''; }
   function applyHead(text, withName){
-    return String(text).split('\n').map(function(line){
+    return noCodes(String(text)).split('\n').map(function(line){
       if (ctx.sbDate && /^\s*date\s*:/i.test(line)) return line.replace(/^(\s*date\s*:).*$/i, '$1 ' + ctx.sbDate);
       if (withName && ctx.userName && /^\s*name\s*:/i.test(line)) return line.replace(/^(\s*name\s*:).*$/i, '$1 ' + ctx.userName);
       return line;
@@ -1531,8 +1567,6 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     }});
     box.appendChild(el('div', {style:'display:flex;gap:8px;flex-wrap:wrap;padding:6px 14px'}, cI, nI, qI, uS, addB));
     var ul = el('div', {style:'max-height:280px;overflow:auto;padding:0 14px 8px'});
-    box.appendChild(el('div', {class:'grp', text:t('unitslabel')}));
-    box.appendChild(ul);
     function unitSlots(line){
       var out = [], m;
       if (/^standby/.test(path)){
