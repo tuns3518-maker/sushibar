@@ -421,6 +421,9 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     stNoOrder:{en:'No Order',my:'မမှာရ'},
     stCheck:{en:'Need Check',my:'စစ်ရမည်'},
     stNoCheck:{en:'No Need Check',my:'မစစ်ရ'},
+    pickhint:{en:'Code letter: tap a letter to change every code on this day (A01, A02 … → C01, C02 …). Press Save to apply to all days.',my:'ကုဒ်စာလုံး: စာလုံးကိုနှိပ်ရင် ဒီနေ့က ကုဒ်အားလုံး (A01, A02 … → C01, C02 …) ပြောင်းပါမယ်။ Save နှိပ်ရင် ရက်အားလုံးမှာ ပြောင်းပါမယ်။'},
+    pickdone:{en:'Changed to {n}. Press Save.',my:'{n} ပြောင်းပြီး။ Save နှိပ်ပါ။'},
+    pickhave:{en:'Already on this day.',my:'ဒီနေ့မှာ ရှိပြီးသားပါ။'},
     codedelpick:{en:'Tap a line first, then tap ✕ to delete it.',my:'ဖျက်ချင်တဲ့ စာကြောင်းကို အရင်နှိပ်ပြီးမှ ✕ ကို နှိပ်ပါ။'},
     codedel:{en:'Delete code',my:'ကုဒ်ဖျက်ရန်'},
     codedelarm:{en:'Tap again to delete',my:'ဖျက်ရန် ထပ်နှိပ်ပါ'},
@@ -618,6 +621,92 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
   }
 
   /* ---------- views ---------- */
+  var CODE_LINE = /^(\s*"?\s*)([A-Za-z]{1,3}\d+)\s*([.)])\s?(.*?)(\s*:.*)?$/;
+  function codeItems(text){
+    var out = [];
+    String(text || '').split('\n').forEach(function(l, i){
+      var m = l.match(CODE_LINE); if (m) out.push({code:m[2].toUpperCase(), name:m[4].trim(), sep:m[3], idx:i});
+    });
+    return out;
+  }
+  function dayTargets(){
+    var out = [];
+    ['minmax', 'balance'].forEach(function(sec){ DAYS.forEach(function(d){ out.push({sec:sec, d:d}); }); });
+    return out;
+  }
+  function propagatePlan(path, next, prev){
+    var m = path.match(/^(minmax|balance)(.+)$/); if (!m || DAYS.indexOf(m[2]) < 0) return null;
+    var curSec = m[1], curDay = m[2];
+    var others = dayTargets().filter(function(x){ return !(x.sec === curSec && x.d === curDay); });
+    var pItems = codeItems(prev), nItems = codeItems(next);
+    var pSet = {}, nSet = {}; pItems.forEach(function(c){ pSet[c.code] = c; }); nItems.forEach(function(c){ nSet[c.code] = c; });
+    var removed = pItems.filter(function(c){ return !nSet[c.code]; }), added = nItems.filter(function(c){ return !pSet[c.code]; });
+    var renames = [], delet = [], usedAdd = {};
+    removed.forEach(function(r){
+      var k = -1;
+      for (var q = 0; q < added.length; q++){ if (!usedAdd[q] && added[q].name === r.name){ k = q; break; } }
+      if (k < 0){ for (var q2 = 0; q2 < added.length; q2++){ if (!usedAdd[q2] && removed.length === added.length){ k = q2; break; } } }
+      if (k >= 0){ usedAdd[k] = 1; renames.push({from:r.code, to:added[k].code}); } else delet.push(r.code);
+    });
+    var known = {};
+    pItems.forEach(function(c){ known[c.code] = 1; });
+    others.forEach(function(x){ codeItems(S[x.sec][x.d]).forEach(function(c){ known[c.code] = 1; }); });
+    var fresh = added.filter(function(c, q){ return !usedAdd[q] && !known[c.code]; });
+    var renamedNames = nItems.filter(function(c){ return pSet[c.code] && pSet[c.code].name !== c.name && c.name; });
+    if (!fresh.length && !renamedNames.length && !renames.length && !delet.length) return null;
+    var before = {}, after = {};
+    others.forEach(function(x){
+      var key = x.sec + '|' + x.d, text = S[x.sec][x.d];
+      before[key] = text;
+      if (/^\s*not need/i.test(String(text))){ after[key] = text; return; }
+      var lines = String(text).split('\n');
+      var codesNow = function(){ var o = {}; lines.forEach(function(l){ var mm = l.match(CODE_LINE); if (mm) o[mm[2].toUpperCase()] = 1; }); return o; };
+      renames.forEach(function(r){
+        var have = codesNow(); if (have[r.to]) return;
+        lines = lines.map(function(l){ var mm = l.match(CODE_LINE); if (mm && mm[2].toUpperCase() === r.from) return mm[1] + r.to + mm[3] + ' ' + mm[4] + (mm[5] || ''); return l; });
+      });
+      if (delet.length) lines = lines.filter(function(l){ var mm = l.match(CODE_LINE); return !(mm && delet.indexOf(mm[2].toUpperCase()) >= 0); });
+      renamedNames.forEach(function(c){
+        lines = lines.map(function(l){ var mm = l.match(CODE_LINE); if (mm && mm[2].toUpperCase() === c.code) return mm[1] + mm[2] + mm[3] + ' ' + c.name + (mm[5] || ' :'); return l; });
+      });
+      fresh.forEach(function(c){
+        var pos = -1, k = nItems.findIndex(function(z){ return z.code === c.code; });
+        for (var q = k - 1; q >= 0 && pos < 0; q--){
+          for (var j = 0; j < lines.length; j++){ var mm = lines[j].match(CODE_LINE); if (mm && mm[2].toUpperCase() === nItems[q].code){ pos = j; break; } }
+        }
+        if (pos < 0){ for (var j2 = 0; j2 < lines.length; j2++){ if (CODE_LINE.test(lines[j2])) pos = j2; } }
+        if (pos < 0) pos = lines.length - 1;
+        lines.splice(pos + 1, 0, c.code + c.sep + ' ' + c.name + ' :');
+      });
+      after[key] = lines.join('\n');
+    });
+    return {
+      apply:function(){ Object.keys(after).forEach(function(k){ var p = k.split('|'); S[p[0]][p[1]] = after[k]; }); },
+      undo:function(){ Object.keys(before).forEach(function(k){ var p = k.split('|'); S[p[0]][p[1]] = before[k]; }); }
+    };
+  }
+  function codePicker(ta, path){
+    var wrap = el('div', {class:'sheet panel', style:'padding:10px 12px'});
+    var msg = el('p', {class:'hint', text:''});
+    function cur(){ var cnt = {}; codeItems(ta.value).forEach(function(c){ var L = c.code.replace(/\d+$/, ''); cnt[L] = (cnt[L] || 0) + 1; }); var best = '', n = 0; Object.keys(cnt).forEach(function(L){ if (cnt[L] > n){ n = cnt[L]; best = L; } }); return best; }
+    function draw(){
+      wrap.textContent = '';
+      wrap.appendChild(el('div', {class:'hint', text:t('pickhint')}));
+      var bar = el('div', {style:'display:flex;gap:8px;flex-wrap:wrap;margin:8px 0'});
+      var now = cur();
+      ['A', 'B', 'C', 'D', 'E', 'F', 'G'].forEach(function(L){
+        var b = el('button', {type:'button', class: L === now ? 'primary' : '', text:L, onclick:function(){
+          var r = ta._setLetter ? ta._setLetter(L) : null;
+          msg.textContent = r === true ? t('pickdone', L) : (r || ''); draw();
+        }});
+        b.style.cssText = 'min-height:40px;min-width:44px;padding:4px 12px;font-weight:700';
+        bar.appendChild(b);
+      });
+      wrap.appendChild(bar); wrap.appendChild(msg);
+    }
+    draw();
+    return wrap;
+  }
   function sheetView(path, title, getText, setText, viewText){
     var shown = viewText || getText;
     var text = getText();
@@ -631,14 +720,15 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
         var next = ta.value, prev = getText();
         if (next === prev){ ctx.editing = false; render(); return; }
         saveBtn.disabled = true;
-        save(function(){ setText(next); }, function(){ setText(prev); });
+        var plan = propagatePlan(path, next, prev);
+        save(function(){ setText(next); if (plan) plan.apply(); }, function(){ setText(prev); if (plan) plan.undo(); });
       }});
       var cancel = el('button', {type:'button', text:t('cancel'), onclick:function(){ ctx.editing = false; ctx.status = ''; render(); }});
       bar.appendChild(el('span', {class:'note', text:t('editing')}));
       bar.appendChild(el('div', {class:'btns'}, cancel, saveBtn));
       box.appendChild(bar);
       box.appendChild(ta);
-      if (/^(minmax|balance|standby|itemsbal|itemsorder|salmon|order)/.test(path)){ ta.style.display = 'none'; box.appendChild(gutterEditor(ta, path)); }
+      if (/^(minmax|balance|standby|itemsbal|itemsorder|salmon|order)/.test(path)){ ta.style.display = 'none'; var ge = gutterEditor(ta, path); if (/^(minmax|balance)/.test(path)) box.appendChild(codePicker(ta, path)); box.appendChild(ge); }
     } else {
       var shownNC = function(){ return noCodes(shown()); };
       pre = el('pre', {class:'txt', id:'sheet-text', text:ctx.isOwner ? shown() : shownNC()});
@@ -1667,6 +1757,28 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       relayout(Math.min(CUR, lines.length - 1));
     }});
     [addB, delB].forEach(function(bn){ bn.style.cssText = 'min-width:56px;height:46px;font-size:22px;border-radius:999px;padding:0 14px'; bn.addEventListener('mousedown', function(e){ e.preventDefault(); }); fbar.appendChild(bn); });
+    ta._setLetter = function(L){
+      if (NUM) return null;
+      var map = [], seen = {};
+      for (var i = 0; i < codes.length; i++){
+        if (!codes[i]) continue;
+        var nc = L + codes[i].replace(/^[A-Za-z]+/, '');
+        if (seen[nc]) return t('codedup');
+        seen[nc] = 1; map.push([i, nc]);
+      }
+      map.forEach(function(p){ codes[p[0]] = p[1]; });
+      sync(); buildGut(); return true;
+    };
+    ta._addLine = function(code, name){
+      var at = -1, L = code.replace(/\d+$/, '');
+      codes.forEach(function(c, i){ if (c && !NUM && c.replace(/\d+$/, '') === L) at = i; });
+      if (at < 0) codes.forEach(function(c, i){ if (c) at = i; });
+      if (at < 0) at = lines.length - 1;
+      at += 1;
+      lines.splice(at, 0, name + ' :'); codes.splice(at, 0, NUM ? nextAny() : code); seps.splice(at, 0, NUM ? ')' : '.'); leads.splice(at, 0, '');
+      tx.value = lines.join('\n'); fit(); sync(); buildGut(); CUR = at;
+      return true;
+    };
     row.appendChild(gut); row.appendChild(tx);
     wrap.style.marginBottom = '90px';
     wrap.appendChild(row); wrap.appendChild(msg); wrap.appendChild(fbar);
