@@ -135,7 +135,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     Element.prototype.replaceChildren = function(){ while (this.firstChild) this.removeChild(this.firstChild); for (var i = 0; i < arguments.length; i++) this.appendChild(typeof arguments[i] === 'string' ? document.createTextNode(arguments[i]) : arguments[i]); };
   }
   var R = JSON.parse(document.getElementById('state').textContent);
-  var OKEYS = ['standby','minmax','balance','order','schedule','standbyMin','salmon','items','itemsMin'];
+  var OKEYS = ['standby','minmax','balance','order','schedule','standbyMin','salmon','items','itemsMin','stash'];
   var ITEMS_DEFAULT = ['*Outlet:* PNG','Balance','1. Spoungee: 0 pkt','2. Fire Gun: 0 pkt','3. Digital Timer: 0 pcs','4. Maki Su: 0 pkt','5. Nori Box Lamp Bulb: 0 pcs','6. Sauce brush: 0 pcs','7. Bamboo mini brush: 0 pcs','8. Coconut Brush:  0 pcs','9. Fish bone tweezer: 0 pcs','10. Morning White Towel: 0 pcs','11. Rice White towel: 0 pcs','12. Blue  towel: 0 pcs','13. Green  towel: 0 pcs','14. Orange  towel: 0 pcs','15. Brown  towel: 0 pcs','16. Wooden Chopsticks 45cm: 0 Set'].join('\n');
   var SALMON_DEFAULT = 'UO SHIN \nOutlet : PNG \nName: \nDate : \n\nBalance\n1. Salmon:  1 pkt\n2. Salmon Belly: 1 pkt\n3. Hirame: 1 nos 2 pkt\n4. Shima-Aji:  2 nos 3 pkt\n5. Tai:  0 nos 1 pkt';
   if (!R.outlets){
@@ -151,7 +151,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     d.minmax = d.minmax || {}; d.balance = d.balance || {}; d.schedule = d.schedule || {};
     d.order = d.order || ''; d.standby = d.standby || '';
     if (!d.sections || !d.sections.length) d.sections = defaultSections();
-    d.inst = d.inst || {};
+    d.inst = d.inst || {}; d.stash = d.stash || {};
     try { migrateCodes(d); } catch(e){}
   }
   function migrateCodes(d){
@@ -182,7 +182,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     var b = R.data[CUR.name];
     return (CUR.inst && b.inst && b.inst[CUR.inst]) ? b.inst[CUR.inst] : b;
   }
-  var DICTK = {standbyMin:1, itemsMin:1, minmax:1, balance:1, schedule:1};
+  var DICTK = {standbyMin:1, itemsMin:1, minmax:1, balance:1, schedule:1, stash:1};
   OKEYS.forEach(function(k){
     Object.defineProperty(S, k, {enumerable:true,
       get:function(){
@@ -417,6 +417,10 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     codeadd:{en:'Add code',my:'ကုဒ်ထည့်ရန်'},
     addtext:{en:'Text line',my:'စာကြောင်း'},
     gutterhint:{en:'Tap a box on the left and type the code yourself. Leave it empty for a line without a code.',my:'ဘယ်ဘက်က အကွက်ကို နှိပ်ပြီး ကုဒ်ကို ကိုယ်တိုင် ရိုက်ထည့်ပါ။ ကုဒ်မလိုတဲ့ စာကြောင်းဆိုရင် အလွတ်ထားပါ။'},
+    stOrder:{en:'Order',my:'မှာမည်'},
+    stNoOrder:{en:'No Order',my:'မမှာရ'},
+    stCheck:{en:'Need Check',my:'စစ်ရမည်'},
+    stNoCheck:{en:'No Need Check',my:'မစစ်ရ'},
     codedelpick:{en:'Tap a line first, then tap ✕ to delete it.',my:'ဖျက်ချင်တဲ့ စာကြောင်းကို အရင်နှိပ်ပြီးမှ ✕ ကို နှိပ်ပါ။'},
     codedel:{en:'Delete code',my:'ကုဒ်ဖျက်ရန်'},
     codedelarm:{en:'Tap again to delete',my:'ဖျက်ရန် ထပ်နှိပ်ပါ'},
@@ -506,6 +510,26 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     return n;
   }
   function slug(s){ return s.toLowerCase().replace(/\s+/g,'-'); }
+  function dayOff(sec, d){ var v = (S[sec] || {})[d]; return /^\s*not need/i.test(String(v == null ? '' : v)); }
+  function setDayState(sec, d, on){
+    var data = S[sec], prev = data[d], prevSt = S.stash || {}, st = Object.assign({}, prevSt), k = sec + '|' + d;
+    var next;
+    if (on){ next = (st[k] != null && st[k] !== '') ? st[k] : ((CUR.name || '') + '\nDATE:\n'); delete st[k]; }
+    else { if (!dayOff(sec, d)) st[k] = prev; next = sec === 'minmax' ? 'Not need order' : 'Not need checking'; }
+    save(function(){ data[d] = next; S.stash = st; }, function(){ data[d] = prev; S.stash = prevSt; });
+  }
+  function dayToggle(sec, d){
+    var off = dayOff(sec, d), a = sec === 'minmax' ? t('stOrder') : t('stCheck'), b = sec === 'minmax' ? t('stNoOrder') : t('stNoCheck');
+    var wrap = el('div', {style:'display:flex;gap:6px;margin:6px 0 4px;flex-wrap:wrap'});
+    [[a, true], [b, false]].forEach(function(o){
+      var active = (o[1] === !off);
+      var btn = el('button', {type:'button', class: active ? 'primary' : '', 'aria-pressed': active ? 'true' : 'false', text:o[0], onclick:function(){ if (!ctx.isOwner || active) return; setDayState(sec, d, o[1]); }});
+      btn.style.cssText = 'flex:1;min-width:0;padding:6px 8px;font-size:13px;min-height:36px';
+      if (!ctx.isOwner) btn.disabled = true;
+      wrap.appendChild(btn);
+    });
+    return wrap;
+  }
   function tile(href, title, sub, compact, pill){
     var left = el('div', {}, el('div', {class:'t', text:title}), sub ? el('div', {class:'s', text:sub}) : null);
     return el('a', {class:'tile' + (compact ? ' compact' : ''), href:href},
@@ -787,11 +811,12 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     var out = [el('h3', {class:'h3', text:t('autoorder')})];
     var pick = el('div', {class:'langs', role:'group', 'aria-label':t('orderday')});
     DAYS.forEach(function(dd, i){
-      pick.appendChild(el('button', {type:'button', class: i === ctx.orderDay ? 'primary' : '', 'aria-pressed': i === ctx.orderDay ? 'true' : 'false', text:dayLabel(dd), onclick:function(){ ctx.orderDay = i; render(); }}));
+      pick.appendChild(el('button', {type:'button', class: i === ctx.orderDay ? 'primary' : '', 'aria-pressed': i === ctx.orderDay ? 'true' : 'false', text:dayLabel(dd) + (dayOff('minmax', dd) ? ' ✕' : ''), onclick:function(){ ctx.orderDay = i; render(); }}));
     });
     var hp = el('div', {class:'sheet panel'}); headRows(hp, false, refreshOrderTexts); out.push(hp);
     out.push(el('p', {class:'hint', text:t('orderday') + ' · ' + t('formula')}));
     out.push(pick);
+    out.push(el('div', {class:'sheet panel', style:'padding:8px 12px'}, el('div', {class:'hint', text:dayLabel(D) + ' · ' + (dayOff('minmax', D) ? t('stNoOrder') : t('stOrder'))}), ctx.isOwner ? dayToggle('minmax', D) : null));
     var list = el('div', {class:'sheet panel'});
     if (!rows.length){
       list.appendChild(el('p', {class:'hint', text:t('noorderday')}));
@@ -812,10 +837,10 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     }
     out.push(list);
     if (rows.length){
-      var pre = el('pre', {class:'txt', id:'order-text', text:orderText(D)});
-      var cb = el('button', {type:'button', class:'primary', text:t('copyorder'), onclick:function(){ copyFrom(orderText(D), pre, cb); }});
+      var pre = el('pre', {class:'txt', id:'order-text', text:dispT(orderText(D))});
+      var cb = el('button', {type:'button', class:'primary', text:t('copyorder'), onclick:function(){ copyFrom(noCodes(orderText(D)), pre, cb); }});
       var tb = el('div', {class:'sheet'});
-      tb.appendChild(el('div', {class:'sheet-bar'}, el('span', {class:'note', text:t('autoorder') + ' · ' + dayLabel(D)}), el('div', {class:'btns'}, cb, shareTextBtn(function(){ return orderText(D); }))));
+      tb.appendChild(el('div', {class:'sheet-bar'}, el('span', {class:'note', text:t('autoorder') + ' · ' + dayLabel(D)}), el('div', {class:'btns'}, cb, shareTextBtn(function(){ return noCodes(orderText(D)); }))));
       tb.appendChild(pre);
       out.push(tb);
     }
@@ -1110,12 +1135,13 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
   }
   function cpre(prefix){ var m = String(prefix).match(/[A-Za-z]{1,3}(\d+)/); if (!m) return ''; return ctx.isOwner ? codeOf(prefix) + ' ' : ''; }
   function applyHead(text, withName){
-    return noCodes(String(text)).split('\n').map(function(line){
+    return String(text).split('\n').map(function(line){
       if (ctx.sbDate && /^\s*date\s*:/i.test(line)) return line.replace(/^(\s*date\s*:).*$/i, '$1 ' + ctx.sbDate);
       if (withName && ctx.userName && /^\s*name\s*:/i.test(line)) return line.replace(/^(\s*name\s*:).*$/i, '$1 ' + ctx.userName);
       return line;
     }).join('\n');
   }
+  function dispT(x){ return ctx.isOwner ? x : noCodes(x); }
   function balanceFilled(text){ return applyHead(balanceFilled0(text), true); }
   function orderText(D){ return applyHead(orderText0(D), false); }
   function headRows(box, withName, onChange){
@@ -1135,7 +1161,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     box.appendChild(el('label', {class:'frow', 'for':'f-date'}, el('span', {class:'n', text:t('date')}), el('span', {class:'f'}, dIn)));
   }
   function refreshOrderTexts(){
-    var a = document.getElementById('order-text'); if (a) a.textContent = orderText(DAYS[ctx.orderDay]);
+    var a = document.getElementById('order-text'); if (a) a.textContent = dispT(orderText(DAYS[ctx.orderDay]));
     var b = document.getElementById('sheet-text'); if (b) b.textContent = applyHead(S.order, false);
   }
 
@@ -1159,13 +1185,13 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     });
   }
   function salmonFilled(text){
-    return applyHead(salScan(text).map(function(r){
+    return noCodes(applyHead(salScan(text).map(function(r){
       if (!r.item) return r.line;
       var v = SAL[r.item.key] || {};
       return r.item.prefix + r.item.name + ': ' + r.item.units.map(function(u){
         var x = v[u]; return (x == null || String(x).trim() === '' ? '–' : String(x).trim()) + ' ' + u;
       }).join(' ');
-    }).join('\n'), true);
+    }).join('\n'), true));
   }
   function salmonPanel(onChange){
     var recs = salScan(S.salmon);
@@ -1617,8 +1643,33 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
         lines = nl; fit(); sync(); buildGut();
       } else { lines = nl; sync(); }
     });
+    var CUR = -1;
+    function lineAt(){ var up = tx.value.slice(0, tx.selectionStart || 0); return up.split('\n').length - 1; }
+    ['focus', 'click', 'keyup', 'select', 'touchend'].forEach(function(ev){ tx.addEventListener(ev, function(){ setTimeout(function(){ CUR = lineAt(); }, 0); }); });
+    var oldBuild = buildGut;
+    buildGut = function(){ oldBuild(); Array.prototype.forEach.call(gut.querySelectorAll('input'), function(inp, i){ inp.addEventListener('focus', function(){ CUR = i; }); }); };
+    function relayout(focusIdx){
+      tx.value = lines.join('\n'); fit(); sync(); buildGut();
+      try { var pos = 0; for (var q = 0; q < focusIdx; q++) pos += lines[q].length + 1; tx.focus(); tx.setSelectionRange(pos, pos); CUR = focusIdx; } catch(e){}
+    }
+    var fbar = el('div', {style:'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:60;display:flex;gap:12px;padding:8px 12px;background:var(--surface,#fff);border:1px solid var(--line);border-radius:999px;box-shadow:0 4px 18px rgba(0,0,0,.28)'});
+    var addB = el('button', {type:'button', text:'＋', 'aria-label':t('codeadd'), onclick:function(){
+      var at = (CUR >= 0 ? CUR : lines.length - 1) + 1;
+      lines.splice(at, 0, ''); codes.splice(at, 0, null); seps.splice(at, 0, NUM ? ')' : '.'); leads.splice(at, 0, '');
+      relayout(at);
+    }});
+    var armed = false, delB = el('button', {type:'button', text:'✕', 'aria-label':t('codedel'), onclick:function(){
+      if (CUR < 0 || CUR >= lines.length){ msg.textContent = t('codedelpick'); return; }
+      if (!armed){ armed = true; delB.textContent = '✕?'; setTimeout(function(){ armed = false; delB.textContent = '✕'; }, 3000); return; }
+      armed = false; delB.textContent = '✕';
+      lines.splice(CUR, 1); codes.splice(CUR, 1); seps.splice(CUR, 1); leads.splice(CUR, 1);
+      if (!lines.length){ lines.push(''); codes.push(null); seps.push(NUM ? ')' : '.'); leads.push(''); }
+      relayout(Math.min(CUR, lines.length - 1));
+    }});
+    [addB, delB].forEach(function(bn){ bn.style.cssText = 'min-width:56px;height:46px;font-size:22px;border-radius:999px;padding:0 14px'; bn.addEventListener('mousedown', function(e){ e.preventDefault(); }); fbar.appendChild(bn); });
     row.appendChild(gut); row.appendChild(tx);
-    wrap.appendChild(row); wrap.appendChild(msg);
+    wrap.style.marginBottom = '90px';
+    wrap.appendChild(row); wrap.appendChild(msg); wrap.appendChild(fbar);
     fit(); buildGut(); sync();
     return wrap;
   }
@@ -2122,15 +2173,16 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
         kids.push(el('h2', {text:sectionNames[r.sec]}));
         var g = el('div', {class:'days'});
         DAYS.forEach(function(dd){
-          var none = /^not need/i.test(data[dd].trim());
-          g.appendChild(tile('#' + r.sec + '-' + slug(dd), dayLabel(dd), '', true, none ? t('noorder') : null));
+          var none = dayOff(r.sec, dd);
+          var lbl = r.sec === 'minmax' ? t('stNoOrder') : t('stNoCheck');
+          g.appendChild(el('div', {}, tile('#' + r.sec + '-' + slug(dd), dayLabel(dd), '', true, none ? lbl : null), ctx.isOwner ? dayToggle(r.sec, dd) : null));
         });
         kids.push(g);
       } else {
         kids.push(crumbs([{label:'Home', href:'#'}, {label:secName('ordering'), href:'#ordering'}, {label:sectionNames[r.sec], href:'#' + r.sec}, {label:d}]));
         kids.push(el('h2', {text:sectionNames[r.sec] + ' · ' + dayLabel(d)}));
         if (r.sec === 'balance' && !(ctx.editing && ctx.canEdit)){
-          var bp = balancePanel(d, function(){ var pr = document.getElementById('sheet-text'); if (pr) pr.textContent = balanceFilled(data[d]); });
+          var bp = balancePanel(d, function(){ var pr = document.getElementById('sheet-text'); if (pr) pr.textContent = dispT(balanceFilled(data[d])); });
           if (bp) kids.push(bp);
         }
         sheetView(r.sec + d, dayLabel(d), function(){ return data[d]; }, function(v){ data[d] = v; },
