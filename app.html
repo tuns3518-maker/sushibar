@@ -610,8 +610,8 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       bar.appendChild(el('span', {class:'note', text:t('editing')}));
       bar.appendChild(el('div', {class:'btns'}, cancel, saveBtn));
       box.appendChild(bar);
-      if (/^(minmax|balance|standby|itemsbal|itemsorder|salmon)/.test(path)) box.appendChild(codeTools(ta, path));
       box.appendChild(ta);
+      if (/^(minmax|balance|standby|itemsbal|itemsorder|salmon)/.test(path)){ ta.style.display = 'none'; box.appendChild(rowsEditor(ta, path)); }
     } else {
       var shownNC = function(){ return noCodes(shown()); };
       pre = el('pre', {class:'txt', id:'sheet-text', text:ctx.isOwner ? shown() : shownNC()});
@@ -1540,6 +1540,80 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     var pairs = m[2].match(/\d+(?:\.\d+)?\s*[A-Za-z]+/g);
     if (!pairs || pairs.length !== 1) return null;
     return m[1] + m[2].replace(/(\d+(?:\.\d+)?\s*)[A-Za-z]+/, '$1' + u);
+  }
+  function rowsEditor(ta, path){
+    var wrap = el('div', {class:'sheet panel', style:'padding:8px 10px'});
+    var msg = el('p', {class:'hint', text:''});
+    var CRE = /^(\s*"?\s*)([A-Za-z]{1,3}\d+)\s*([.)])\s?(.*)$/;
+    var rows = ta.value.split('\n').map(function(l){
+      var m = l.match(CRE);
+      return m ? {lead:m[1], code:m[2].toUpperCase(), sep:m[3], text:m[4]} : {code:null, text:l};
+    });
+    function sync(){ ta.value = rows.map(function(r){ return r.code !== null ? r.lead + r.code + r.sep + ' ' + r.text : r.text; }).join('\n'); }
+    function unitSlots(line){
+      var out = [], m;
+      if (/^standby/.test(path)){
+        m = line.match(/\(([^)]*)\)/);
+        if (m) out.push({start:m.index + 1, end:m.index + 1 + m[1].length, unit:m[1].trim()});
+        return out;
+      }
+      m = line.match(/^(.*?:\s*)(.*)$/); if (!m) return out;
+      var off = m[1].length, re = /(\d+(?:\.\d+)?\s*)([A-Za-z]+)/g, u;
+      while ((u = re.exec(m[2])) !== null) out.push({start:off + u.index + u[1].length, end:off + u.index + u[1].length + u[2].length, unit:u[2]});
+      return out;
+    }
+    function build(){
+      wrap.textContent = '';
+      rows.forEach(function(r, i){
+        var line = el('div', {style:'display:flex;gap:6px;align-items:center;margin:5px 0;flex-wrap:wrap'});
+        var ti = el('input', {class:'qty', type:'text', autocomplete:'off', style:'flex:1;min-width:140px;text-align:left'});
+        ti.value = r.text;
+        ti.addEventListener('input', function(){ r.text = ti.value; sync(); });
+        if (r.code !== null){
+          var ci = el('input', {class:'qty', type:'text', autocomplete:'off', autocapitalize:'characters', 'aria-label':'Code', style:'width:64px;text-align:left'});
+          ci.value = r.code;
+          ci.addEventListener('change', function(){
+            var v = ci.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+            if (!/^[A-Z]{1,3}\d+$/.test(v)){ ci.value = r.code; msg.textContent = t('codebad'); return; }
+            if (rows.some(function(o, j){ return j !== i && o.code === v; })){ ci.value = r.code; msg.textContent = t('codedup'); return; }
+            r.code = v; ci.value = v; msg.textContent = ''; sync();
+          });
+          line.appendChild(ci);
+          line.appendChild(ti);
+          unitSlots(r.text).forEach(function(sl, k){
+            var sel = unitSel(), cur = sl.unit.toLowerCase();
+            if (UNITS5.indexOf(cur) < 0) sel.insertBefore(el('option', {value:cur, text:sl.unit}), sel.firstChild);
+            sel.value = cur;
+            sel.addEventListener('change', function(){
+              var s2 = unitSlots(r.text); if (!s2[k]) return;
+              r.text = r.text.slice(0, s2[k].start) + sel.value + r.text.slice(s2[k].end);
+              sync(); build();
+            });
+            line.appendChild(sel);
+          });
+          line.appendChild(el('button', {type:'button', text:'＋', 'aria-label':t('codeadd'), onclick:function(){
+            var letter = codeLetterFor(ta.value, path), code = nextCode(ta.value, letter), txt;
+            if (/^standby/.test(path)) txt = ' (pkt)-';
+            else if (/^(minmax|balance)/.test(path)) txt = ' :';
+            else txt = ': 0 pkt';
+            rows.splice(i + 1, 0, {lead:'', code:code, sep:'.', text:txt.replace(/^ /, '')});
+            sync(); build();
+          }}));
+          var armed = false, del = el('button', {type:'button', text:'✕', 'aria-label':t('codedel'), onclick:function(){
+            if (!armed){ armed = true; del.textContent = '✕?'; setTimeout(function(){ armed = false; del.textContent = '✕'; }, 3000); return; }
+            rows.splice(i, 1); sync(); build();
+          }});
+          line.appendChild(del);
+        } else {
+          ti.style.fontWeight = '600';
+          line.appendChild(ti);
+        }
+        wrap.appendChild(line);
+      });
+      wrap.appendChild(msg);
+    }
+    build();
+    return wrap;
   }
   function codeTools(ta, path){
     var box = el('div', {class:'sheet panel', style:'margin:8px 0'});
