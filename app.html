@@ -152,7 +152,35 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     d.order = d.order || ''; d.standby = d.standby || '';
     if (!d.sections || !d.sections.length) d.sections = defaultSections();
     d.inst = d.inst || {}; d.stash = d.stash || {}; d.link = d.link || {};
-    try { migrateCodes(d); } catch(e){}
+    try { stripCodes(d); } catch(e){}
+  }
+  function stripCodes(d){
+    var RE = /^(\s*"?\s*)([A-Za-z]{1,3}\d+)\s*([.)])\s?/;
+    function stripText(text){ return String(text == null ? '' : text).split('\n').map(function(l){ var m = l.match(RE); if (!m) return l; var rest = l.replace(RE, ''); if (/^\\d+\\s*[.)]/.test(rest)) return m[1] + rest; return m[1] + parseInt(m[2].replace(/^[A-Za-z]+/, ''), 10) + m[3] + ' ' + rest; }).join('\n'); }
+    function hasCode(text){ return String(text || '').split('\n').some(function(l){ return RE.test(l); }); }
+    function remap(text, minMap, kind){
+      var map = {};
+      String(text || '').split('\n').forEach(function(l){
+        var m = l.match(RE); if (!m) return;
+        var rest = l.replace(RE, ''), nm = (kind === 'sb' ? rest.split('-')[0] : rest.split(':')[0]).trim();
+        map['C:' + m[2].toUpperCase()] = ikey('1. ', '', nm);
+      });
+      var old = minMap || {}, out = {};
+      Object.keys(old).forEach(function(k){ out[map[k] || k] = old[k]; });
+      return out;
+    }
+    function fixObj(o){
+      if (!o) return;
+      if (hasCode(o.standby)){ o.standbyMin = remap(o.standby, o.standbyMin, 'sb'); o.standby = stripText(o.standby); }
+      if (hasCode(o.items)){ o.itemsMin = remap(o.items, o.itemsMin, 'it'); o.items = stripText(o.items); }
+      ['salmon', 'order'].forEach(function(k){ if (hasCode(o[k])) o[k] = stripText(o[k]); });
+      ['minmax', 'balance'].forEach(function(k){
+        var dd = o[k]; if (!dd || typeof dd !== 'object') return;
+        Object.keys(dd).forEach(function(day){ if (hasCode(dd[day])) dd[day] = stripText(dd[day]); });
+      });
+    }
+    fixObj(d);
+    Object.keys(d.inst || {}).forEach(function(id){ fixObj(d.inst[id]); });
   }
   function migrateCodes(d){
     function conv(text, letter, minKey, kind){
@@ -385,30 +413,16 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     ordering:{en:'Ordering',my:'Ordering'},
     orderingsub:{en:'Min Max · Balance Checking · Order',my:'Min Max · Balance Checking · Order'},
     howtitle:{en:'How it works',my:'အလုပ်လုပ်ပုံ'},
-    how_ordering:{
-      en:'Ordering has 3 parts.\nMin Max: write the quantity you want to keep for each item.\nBalance Checking: count what is left and enter it.\nOrder: the app takes Min Max and subtracts Balance for items with the same code, and shows what to order.',
-      my:'Ordering မှာ အပိုင်း ၃ ပိုင်း ရှိပါတယ်။\nMin Max: ပစ္စည်းတစ်ခုချင်းစီအတွက် ထားချင်တဲ့ ပမာဏကို ရေးပါ။\nBalance Checking: ကျန်တာကို ရေတွက်ပြီး ဖြည့်ပါ။\nOrder: ကုဒ်တူတဲ့ ပစ္စည်းတွေရဲ့ Min Max ကနေ Balance ကို နုတ်ပြီး မှာရမယ့် ပမာဏကို အလိုအလျောက် ပြပါမယ်။'},
-    how_minmax:{
-      en:'Each item line starts with a code. Monday uses A, Tuesday B, Wednesday C, Thursday D, Friday E, Saturday F, Sunday G (for example A01).\nAfter the colon write the quantity to keep.\nThe code links the item to Balance Checking and Order.\nLeaders: tap Edit, then use Add code or Delete code.',
-      my:'ပစ္စည်းတစ်ကြောင်းစီရဲ့ အစမှာ ကုဒ် ပါပါတယ်။ တနင်္လာ A၊ အင်္ဂါ B၊ ဗုဒ္ဓဟူး C၊ ကြာသပတေး D၊ သောကြာ E၊ စနေ F၊ တနင်္ဂနွေ G (ဥပမာ A01) ကို သုံးပါတယ်။\nအချိုးကော်လံ (:) နောက်မှာ ထားချင်တဲ့ ပမာဏကို ရေးပါ။\nကုဒ်က ဒီပစ္စည်းကို Balance Checking နဲ့ Order နဲ့ ချိတ်ပေးပါတယ်။\nခေါင်းဆောင်: Edit ကိုနှိပ်ပြီး Add code / Delete code ကို သုံးပါ။'},
-    how_balance:{
-      en:'Use the same code as in Min Max.\nEnter what is left for each code.\nOrder = Min Max − Balance, matched by code only, not by day. Items with a different code are never subtracted.\nLeaders: tap Edit, then use Add code or Delete code.',
-      my:'Min Max မှာ သုံးထားတဲ့ ကုဒ်အတိုင်း သုံးပါ။\nကုဒ်တစ်ခုချင်းစီအတွက် ကျန်တဲ့ပမာဏကို ဖြည့်ပါ။\nOrder = Min Max − Balance ဖြစ်ပြီး ကုဒ်တူမှသာ နုတ်ပါတယ်၊ ရက်ကို မကြည့်ပါဘူး။ ကုဒ်မတူရင် မနုတ်ပါဘူး။\nခေါင်းဆောင်: Edit ကိုနှိပ်ပြီး Add code / Delete code ကို သုံးပါ။'},
-    how_order:{
-      en:'The order is calculated automatically.\nFor each Min Max code: Order = Min Max − Balance with the same code.\nPick a day to see that day\'s order, then Copy or Send.',
-      my:'မှာရမယ့်ပမာဏကို အလိုအလျောက် တွက်ပေးပါတယ်။\nMin Max ကုဒ်တစ်ခုချင်းစီအတွက် Order = Min Max − ကုဒ်တူတဲ့ Balance ဖြစ်ပါတယ်။\nရက်ကိုရွေးပြီး အဲဒီရက်ရဲ့ Order ကို ကြည့်ပါ၊ ပြီးရင် Copy သို့မဟုတ် Send လုပ်ပါ။'},
+    how_ordering:{en:'Ordering has 3 parts.\nMin Max: write the quantity you want to keep for each item.\nBalance Checking: count what is left and enter it.\nOrder: the app takes Min Max and subtracts Balance for items with the same name, and shows what to order.',my:'Ordering မှာ အပိုင်း ၃ ပိုင်း ရှိပါတယ်။\nMin Max: ပစ္စည်းတစ်ခုချင်းစီအတွက် ထားချင်တဲ့ ပမာဏကို ရေးပါ။\nBalance Checking: ကျန်တာကို ရေတွက်ပြီး ဖြည့်ပါ။\nOrder: နာမည်တူတဲ့ ပစ္စည်းတွေရဲ့ Min Max ကနေ Balance ကို နုတ်ပြီး မှာရမယ့် ပမာဏကို အလိုအလျောက် ပြပါမယ်။'},
+    how_minmax:{en:'Each item has its own line.\nAfter the colon write the quantity to keep.\nThe item name links it to Balance Checking and Order.\nLeaders: tap Edit to change the text.',my:'ပစ္စည်းတစ်ခုစီမှာ စာကြောင်းတစ်ကြောင်း ရှိပါတယ်။\nအချိုးကော်လံ (:) နောက်မှာ ထားချင်တဲ့ ပမာဏကို ရေးပါ။\nပစ္စည်းနာမည်က Balance Checking နဲ့ Order နဲ့ ချိတ်ပေးပါတယ်။\nခေါင်းဆောင်: Edit ကိုနှိပ်ပြီး စာကို ပြင်ပါ။'},
+    how_balance:{en:'Enter what is left for each item.\nOrder = Min Max − Balance, matched by item name.\nLeaders: tap Edit to change the text.',my:'ပစ္စည်းတစ်ခုချင်းစီအတွက် ကျန်တဲ့ပမာဏကို ဖြည့်ပါ။\nOrder = Min Max − Balance ဖြစ်ပြီး ပစ္စည်းနာမည်တူတာကို နုတ်ပါတယ်။\nခေါင်းဆောင်: Edit ကိုနှိပ်ပြီး စာကို ပြင်ပါ။'},
+    how_order:{en:'The order is calculated automatically.\nFor each Min Max item: Order = Min Max − Balance of the same item.\nPick a day to see that day\'s order, then Copy or Send.',my:'မှာရမယ့်ပမာဏကို အလိုအလျောက် တွက်ပေးပါတယ်။\nMin Max ပစ္စည်းတစ်ခုချင်းစီအတွက် Order = Min Max − ပစ္စည်းတူတဲ့ Balance ဖြစ်ပါတယ်။\nရက်ကိုရွေးပြီး အဲဒီရက်ရဲ့ Order ကို ကြည့်ပါ၊ ပြီးရင် Copy သို့မဟုတ် Send လုပ်ပါ။'},
     how_schedule:{
       en:'Each supplier shows which day to order and which day it is delivered.\nLeaders can edit the text.',
       my:'ပေးသွင်းသူတစ်ဦးချင်းစီအတွက် ဘယ်နေ့မှာယူပြီး ဘယ်နေ့ ရောက်မလဲ ဆိုတာ ပြထားပါတယ်။\nခေါင်းဆောင်က စာကို ပြင်လို့ရပါတယ်။'},
-    how_standby:{
-      en:'Lowest Degree: set the lowest number for each code.\nBalance Checking: enter what is left today.\nItems at or below the lowest number are marked 🔴🔴.\nThen Copy or Send.',
-      my:'Lowest Degree: ကုဒ်တစ်ခုချင်းစီအတွက် အနည်းဆုံးဂဏန်းကို သတ်မှတ်ပါ။\nBalance Checking: ဒီနေ့ ကျန်တာကို ဖြည့်ပါ။\nအနည်းဆုံးဂဏန်းနဲ့ ညီ သို့မဟုတ် နည်းရင် 🔴🔴 ပြပါမယ်။\nပြီးရင် Copy သို့မဟုတ် Send လုပ်ပါ။'},
-    how_items:{
-      en:'Lowest Degree: set the lowest number for each code.\nBalance: enter what is left. Items at or below the lowest number are marked 🔴🔴 and listed to order.\nThen Copy or Send.',
-      my:'Lowest Degree: ကုဒ်တစ်ခုချင်းစီအတွက် အနည်းဆုံးဂဏန်းကို သတ်မှတ်ပါ။\nBalance: ကျန်တာကို ဖြည့်ပါ။ အနည်းဆုံးဂဏန်းနဲ့ ညီ သို့မဟုတ် နည်းရင် 🔴🔴 ပြပြီး မှာရမယ့်စာရင်းထဲ ထည့်ပေးပါမယ်။\nပြီးရင် Copy သို့မဟုတ် Send လုပ်ပါ။'},
-    how_salmon:{
-      en:'Enter the balance for each code (nos / pkt).\nThen Copy or Send.',
-      my:'ကုဒ်တစ်ခုချင်းစီအတွက် လက်ကျန် (nos / pkt) ကို ဖြည့်ပါ။\nပြီးရင် Copy သို့မဟုတ် Send လုပ်ပါ။'},
+    how_standby:{en:'Lowest Degree: set the lowest number for each item.\nBalance Checking: enter what is left today.\nItems at or below the lowest number are marked 🔴🔴.\nThen Copy or Send.',my:'Lowest Degree: ပစ္စည်းတစ်ခုချင်းစီအတွက် အနည်းဆုံးဂဏန်းကို သတ်မှတ်ပါ။\nBalance Checking: ဒီနေ့ ကျန်တာကို ဖြည့်ပါ။\nအနည်းဆုံးဂဏန်းနဲ့ ညီ သို့မဟုတ် နည်းရင် 🔴🔴 ပြပါမယ်။\nပြီးရင် Copy သို့မဟုတ် Send လုပ်ပါ။'},
+    how_items:{en:'Lowest Degree: set the lowest number for each item.\nBalance: enter what is left. Items at or below the lowest number are marked 🔴🔴 and listed to order.\nThen Copy or Send.',my:'Lowest Degree: ပစ္စည်းတစ်ခုချင်းစီအတွက် အနည်းဆုံးဂဏန်းကို သတ်မှတ်ပါ။\nBalance: ကျန်တာကို ဖြည့်ပါ။ အနည်းဆုံးဂဏန်းနဲ့ ညီ သို့မဟုတ် နည်းရင် 🔴🔴 ပြပြီး မှာရမယ့်စာရင်းထဲ ထည့်ပေးပါမယ်။\nပြီးရင် Copy သို့မဟုတ် Send လုပ်ပါ။'},
+    how_salmon:{en:'Enter the balance for each item (nos / pkt).\nThen Copy or Send.',my:'ပစ္စည်းတစ်ခုချင်းစီအတွက် လက်ကျန် (nos / pkt) ကို ဖြည့်ပါ။\nပြီးရင် Copy သို့မဟုတ် Send လုပ်ပါ။'},
     codetools:{en:'Codes',my:'ကုဒ်များ'},
     codehint:{en:'Add or delete a code here, then press Save.',my:'ဒီမှာ ကုဒ်ထည့်/ဖျက်ပြီး Save နှိပ်ပါ။'},
     coderest:{en:'Item name : quantity',my:'ပစ္စည်းအမည် : ပမာဏ'},
@@ -425,7 +439,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     mondayonly:{en:'Codes and item names are set on Monday only. Here you can change the quantity and the code letter (A, B, C …).',my:'ကုဒ်နဲ့ item နာမည်ကို Monday မှာပဲ သတ်မှတ်ပါတယ်။ ဒီမှာ ပမာဏနဲ့ ကုဒ်စာလုံး (A, B, C …) ကိုပဲ ပြင်လို့ရပါတယ်။'},
     linkhint:{en:'Balance days subtracted for {n}:',my:'{n} အတွက် နှုတ်မယ့် Balance ရက်:'},
     linkall:{en:'all days',my:'ရက်အားလုံး'},
-    linknote:{en:'Pick the Balance days to subtract from this order day. Matching is by code only. None picked = all days.',my:'ဒီ Order ရက်ကနေ နှုတ်မယ့် Balance ရက်တွေကို ရွေးပါ။ ကုဒ်အတူတူတာကိုပဲ နှုတ်ပါမယ်။ မရွေးရင် ရက်အားလုံး။'},
+    linknote:{en:'Pick the Balance days to subtract from this order day. Matching is by item name. None picked = all days.',my:'ဒီ Order ရက်ကနေ နှုတ်မယ့် Balance ရက်တွေကို ရွေးပါ။ ပစ္စည်းနာမည်တူတာကိုပဲ နှုတ်ပါမယ်။ မရွေးရင် ရက်အားလုံး။'},
     pickhint:{en:'Code letter: tap a letter to change every code on this day (A01, A02 … → C01, C02 …). Press Save to apply to all days.',my:'ကုဒ်စာလုံး: စာလုံးကိုနှိပ်ရင် ဒီနေ့က ကုဒ်အားလုံး (A01, A02 … → C01, C02 …) ပြောင်းပါမယ်။ Save နှိပ်ရင် ရက်အားလုံးမှာ ပြောင်းပါမယ်။'},
     pickdone:{en:'Changed to {n}. Press Save.',my:'{n} ပြောင်းပြီး။ Save နှိပ်ပါ။'},
     pickhave:{en:'Already on this day.',my:'ဒီနေ့မှာ ရှိပြီးသားပါ။'},
@@ -446,10 +460,10 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     mbadd:{en:'Add button',my:'ခလုတ်ထည့်ရန်'},
     mbtype:{en:'What do you want to add?',my:'ဘာကို ထည့်ချင်လဲ'},
     mbname:{en:'Button name (optional)',my:'ခလုတ်အမည် (မဖြည့်လည်းရ)'},
-    desc_ordering:{en:'Ordering: Min Max (quantity to keep), Balance Checking (what is left) and Order (Min Max − Balance, matched by code).',my:'Ordering: Min Max (ထားချင်တဲ့ပမာဏ)၊ Balance Checking (ကျန်တာ)၊ Order (ကုဒ်တူတဲ့ Min Max − Balance) ပါဝင်ပါတယ်။'},
-    desc_standby:{en:'Daily Standby Checking: set a lowest number for each code and enter the daily balance. Low items are marked 🔴🔴.',my:'Daily Standby Checking: ကုဒ်တစ်ခုချင်းစီအတွက် အနည်းဆုံးဂဏန်းသတ်မှတ်ပြီး နေ့စဉ်လက်ကျန်ဖြည့်ပါ။ နည်းရင် 🔴🔴 ပြပါမယ်။'},
+    desc_ordering:{en:'Ordering: Min Max (quantity to keep), Balance Checking (what is left) and Order (Min Max − Balance).',my:'Ordering: Min Max (ထားချင်တဲ့ပမာဏ)၊ Balance Checking (ကျန်တာ)၊ Order (Min Max − Balance) ပါဝင်ပါတယ်။'},
+    desc_standby:{en:'Daily Standby Checking: set a lowest number for each item and enter the daily balance. Low items are marked 🔴🔴.',my:'Daily Standby Checking: ပစ္စည်းတစ်ခုချင်းစီအတွက် အနည်းဆုံးဂဏန်းသတ်မှတ်ပြီး နေ့စဉ်လက်ကျန်ဖြည့်ပါ။ နည်းရင် 🔴🔴 ပြပါမယ်။'},
     desc_items:{en:'Item Storage: a list of items with a lowest number and balance. Low items are listed to order.',my:'Item Storage: ပစ္စည်းစာရင်းအတွက် အနည်းဆုံးဂဏန်းနဲ့ လက်ကျန်။ နည်းတာတွေကို မှာရမယ့်စာရင်းထဲ ထည့်ပေးပါမယ်။'},
-    desc_salmon:{en:'Daily inspection of salmon fillets: enter the daily balance of each fish by code, then copy or send.',my:'Daily inspection of salmon fillets: ငါးတစ်မျိုးချင်းစီရဲ့ နေ့စဉ်လက်ကျန်ကို ကုဒ်နဲ့ ဖြည့်ပြီး Copy/Send လုပ်ပါ။'},
+    desc_salmon:{en:'Daily inspection of salmon fillets: enter the daily balance of each fish, then copy or send.',my:'Daily inspection of salmon fillets: ငါးတစ်မျိုးချင်းစီရဲ့ နေ့စဉ်လက်ကျန်ကို ဖြည့်ပြီး Copy/Send လုပ်ပါ။'},
     transfer:{en:'Transfer owner',my:'ပိုင်ရှင်ပြောင်းရန်'},
     transferto:{en:'New leader email',my:'ခေါင်းဆောင်အသစ်ရဲ့ အီးမေးလ်'},
     transferarm:{en:'Tap again to transfer',my:'ပြောင်းရန် ထပ်နှိပ်ပါ'},
@@ -730,15 +744,13 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
         var next = ta.value, prev = getText();
         if (next === prev){ ctx.editing = false; render(); return; }
         saveBtn.disabled = true;
-        var plan = propagatePlan(path, next, prev);
-        save(function(){ setText(next); if (plan) plan.apply(); }, function(){ setText(prev); if (plan) plan.undo(); });
+        save(function(){ setText(next); }, function(){ setText(prev); });
       }});
       var cancel = el('button', {type:'button', text:t('cancel'), onclick:function(){ ctx.editing = false; ctx.status = ''; render(); }});
       bar.appendChild(el('span', {class:'note', text:t('editing')}));
       bar.appendChild(el('div', {class:'btns'}, cancel, saveBtn));
       box.appendChild(bar);
       box.appendChild(ta);
-      if (/^(minmax|balance|standby|itemsbal|itemsorder|salmon|order)/.test(path)){ ta.style.display = 'none'; var otherDay = /^(minmax|balance)(Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$/.test(path); var ge = otherDay ? dayEditor(ta, path) : gutterEditor(ta, path); if (/^(minmax|balance)/.test(path)) box.appendChild(codePicker(ta, path)); box.appendChild(ge); }
     } else {
       var shownNC = function(){ return noCodes(shown()); };
       pre = el('pre', {class:'txt', id:'sheet-text', text:ctx.isOwner ? shown() : shownNC()});
@@ -842,9 +854,9 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     var lk = (S.link || {})[D];
     if (!lk || !lk.length) return bal;
     var okc = {};
-    lk.forEach(function(bd){ codeItems(S.balance[bd]).forEach(function(c){ okc['C:' + c.code] = 1; }); });
+    lk.forEach(function(bd){ scan(S.balance[bd]).forEach(function(r){ if (r.item) okc[resolveKey(r.item.key, minIndex())] = 1; }); });
     var out = {};
-    Object.keys(bal).forEach(function(k){ if (/^C:/.test(k) && !okc[k]) return; out[k] = bal[k]; });
+    Object.keys(bal).forEach(function(k){ if (!okc[k]) return; out[k] = bal[k]; });
     return out;
   }
   function balByMinKey(idx){
@@ -1040,7 +1052,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
         var prev = S.standbyMin || {}, next = {}, prevT = S.standby, nextT = prevT;
         fields.forEach(function(f){ var v = f.inp.value.trim(); if (v !== '') next[f.key] = v; });
         var cs = Object.keys(UCH);
-        if (cs.length) nextT = String(prevT).split('\n').map(function(l){ var c = lineCode(l); return (c && UCH[c] && /\([^)]*\)/.test(l)) ? l.replace(/\([^)]*\)/, '(' + UCH[c] + ')') : l; }).join('\n');
+        if (cs.length) nextT = String(prevT).split('\n').map(function(l){ var rr = sbScan(l)[0], c = rr && rr.item && rr.item.key; return (c && UCH[c] && /\([^)]*\)/.test(l)) ? l.replace(/\([^)]*\)/, '(' + UCH[c] + ')') : l; }).join('\n');
         sb.disabled = true;
         save(function(){ S.standbyMin = next; S.standby = nextT; }, function(){ S.standbyMin = prev; S.standby = prevT; });
       }});
@@ -1055,7 +1067,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       var pm = it.name.match(/\s*\(([^)]*)\)\s*$/);
       var shown = pm ? it.name.slice(0, pm.index) : it.name;
       var unit = el('span', {class:'u', text:pm ? pm[1] : ''}), right;
-      if (inEdit && pm && /^C:/.test(it.key)){ (function(code){ unit = unitPick(pm[1], function(v){ UCH[code] = v; }); })(it.key.slice(2)); }
+      if (inEdit && pm){ (function(code){ unit = unitPick(pm[1], function(v){ UCH[code] = v; }); })(it.key); }
       if (inEdit){
         var inp = el('input', {class:'qty', type:'text', inputmode:'decimal', autocomplete:'off', id:id});
         inp.value = cur != null ? cur : '';
@@ -1166,7 +1178,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       var sb = el('button', {type:'button', class:'primary', text:t('save'), onclick:function(){
         var prev = S.itemsMin || {}, next = {}, prevT = S.items, nextT = prevT;
         fields.forEach(function(f){ var v = f.inp.value.trim(); if (v !== '') next[f.key] = v; });
-        if (Object.keys(UCH).length) nextT = String(prevT).split('\n').map(function(l){ var c = lineCode(l); return (c && UCH[c]) ? l.replace(/[A-Za-z]+\s*$/, UCH[c]) : l; }).join('\n');
+        if (Object.keys(UCH).length) nextT = String(prevT).split('\n').map(function(l){ var rr = itScan(l)[0], c = rr && rr.item && rr.item.key; return (c && UCH[c]) ? l.replace(/[A-Za-z]+\s*$/, UCH[c]) : l; }).join('\n');
         sb.disabled = true;
         save(function(){ S.itemsMin = next; S.items = nextT; }, function(){ S.itemsMin = prev; S.items = prevT; });
       }});
@@ -1179,7 +1191,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       if (!r.item) return;
       var it = r.item, id = 'il-' + (n++), cur = (S.itemsMin || {})[it.key], right;
       var unit = el('span', {class:'u', text:it.unit});
-      if (inEdit && /^C:/.test(it.key)){ (function(code){ unit = unitPick(it.unit, function(v){ UCH[code] = v; }); })(it.key.slice(2)); }
+      if (inEdit){ (function(code){ unit = unitPick(it.unit, function(v){ UCH[code] = v; }); })(it.key); }
       if (inEdit){
         var inp = el('input', {class:'qty', type:'text', inputmode:'decimal', autocomplete:'off', id:id});
         inp.value = cur != null ? cur : '';
@@ -1261,7 +1273,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     var txt = noCodes(arr.map(function(x){ return x.t; }).join('\n')).split('\n');
     return arr.map(function(x, i){ return {t:txt[i], need:x.need}; });
   }
-  function cpre(prefix){ var m = String(prefix).match(/[A-Za-z]{1,3}(\d+)/); if (!m) return ''; return ctx.isOwner ? codeOf(prefix) + ' ' : ''; }
+  function cpre(prefix){ return ''; }
   function applyHead(text, withName){
     return String(text).split('\n').map(function(line){
       if (ctx.sbDate && /^\s*date\s*:/i.test(line)) return line.replace(/^(\s*date\s*:).*$/i, '$1 ' + ctx.sbDate);
