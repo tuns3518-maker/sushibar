@@ -422,6 +422,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     stCheck:{en:'Need Check',my:'စစ်ရမည်'},
     stNoCheck:{en:'No Need Check',my:'မစစ်ရ'},
     done:{en:'Done',my:'ပြီးပြီ'},
+    mondayonly:{en:'Codes and item names are set on Monday only. Here you can change the quantity and the code letter (A, B, C …).',my:'ကုဒ်နဲ့ item နာမည်ကို Monday မှာပဲ သတ်မှတ်ပါတယ်။ ဒီမှာ ပမာဏနဲ့ ကုဒ်စာလုံး (A, B, C …) ကိုပဲ ပြင်လို့ရပါတယ်။'},
     linkhint:{en:'Balance days subtracted for {n}:',my:'{n} အတွက် နှုတ်မယ့် Balance ရက်:'},
     linkall:{en:'all days',my:'ရက်အားလုံး'},
     linknote:{en:'Pick the Balance days to subtract from this order day. Matching is by code only. None picked = all days.',my:'ဒီ Order ရက်ကနေ နှုတ်မယ့် Balance ရက်တွေကို ရွေးပါ။ ကုဒ်အတူတူတာကိုပဲ နှုတ်ပါမယ်။ မရွေးရင် ရက်အားလုံး။'},
@@ -737,7 +738,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       bar.appendChild(el('div', {class:'btns'}, cancel, saveBtn));
       box.appendChild(bar);
       box.appendChild(ta);
-      if (/^(minmax|balance|standby|itemsbal|itemsorder|salmon|order)/.test(path)){ ta.style.display = 'none'; var ge = gutterEditor(ta, path); if (/^(minmax|balance)/.test(path)) box.appendChild(codePicker(ta, path)); box.appendChild(ge); }
+      if (/^(minmax|balance|standby|itemsbal|itemsorder|salmon|order)/.test(path)){ ta.style.display = 'none'; var otherDay = /^(minmax|balance)(Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$/.test(path); var ge = otherDay ? dayEditor(ta, path) : gutterEditor(ta, path); if (/^(minmax|balance)/.test(path)) box.appendChild(codePicker(ta, path)); box.appendChild(ge); }
     } else {
       var shownNC = function(){ return noCodes(shown()); };
       pre = el('pre', {class:'txt', id:'sheet-text', text:ctx.isOwner ? shown() : shownNC()});
@@ -1695,6 +1696,50 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     var pairs = m[2].match(/\d+(?:\.\d+)?\s*[A-Za-z]+/g);
     if (!pairs || pairs.length !== 1) return null;
     return m[1] + m[2].replace(/(\d+(?:\.\d+)?\s*)[A-Za-z]+/, '$1' + u);
+  }
+  function dayEditor(ta, path){
+    var wrap = el('div', {class:'sheet panel', style:'padding:6px 8px'});
+    var rows = ta.value.split('\n').map(function(l){
+      var m = l.match(CODE_LINE);
+      return m ? {lead:m[1], code:m[2].toUpperCase(), sep:m[3], name:m[4].trim(), rest:(m[5] || '')} : {text:l};
+    });
+    function sync(){ ta.value = rows.map(function(r){ return r.code ? r.lead + r.code + r.sep + ' ' + r.name + r.rest : r.text; }).join('\n'); }
+    function build(){
+      wrap.textContent = '';
+      wrap.appendChild(el('p', {class:'hint', text:t('mondayonly')}));
+      rows.forEach(function(r){
+        var line = el('div', {style:'display:flex;gap:6px;align-items:center;margin:4px 0;flex-wrap:wrap'});
+        if (r.code){
+          var cb = el('input', {type:'text', readonly:'readonly', 'aria-label':'Code', tabindex:'-1'});
+          cb.value = r.code;
+          cb.style.cssText = 'box-sizing:border-box;width:58px;height:34px;min-height:0;padding:0 4px;font:600 13px var(--mono);text-align:center;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)';
+          var nm = el('span', {style:'flex:1;min-width:120px;font-weight:600', text:r.name});
+          var ri = el('input', {class:'qty', type:'text', autocomplete:'off', style:'width:130px;text-align:left'});
+          ri.value = r.rest.replace(/^\s*:\s*/, '');
+          ri.addEventListener('input', function(){ var v = ri.value; r.rest = v === '' ? ' :' : ' : ' + v; sync(); });
+          line.appendChild(cb); line.appendChild(nm); line.appendChild(ri);
+        } else {
+          var ti = el('input', {class:'qty', type:'text', autocomplete:'off', style:'flex:1;min-width:140px;text-align:left;font-weight:600'});
+          ti.value = r.text;
+          ti.addEventListener('input', function(){ r.text = ti.value; sync(); });
+          line.appendChild(ti);
+        }
+        wrap.appendChild(line);
+      });
+    }
+    ta._setLetter = function(L){
+      var seen = {}, map = [];
+      for (var i = 0; i < rows.length; i++){
+        if (!rows[i].code) continue;
+        var nc = L + rows[i].code.replace(/^[A-Za-z]+/, '');
+        if (seen[nc]) return t('codedup');
+        seen[nc] = 1; map.push([i, nc]);
+      }
+      map.forEach(function(p){ rows[p[0]].code = p[1]; });
+      sync(); build(); return true;
+    };
+    build();
+    return wrap;
   }
   function gutterEditor(ta, path){
     var NUM = (path === 'order'), HIDE = /^salmon/.test(path), LH = 34, PADT = 6;
