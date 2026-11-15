@@ -135,7 +135,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     Element.prototype.replaceChildren = function(){ while (this.firstChild) this.removeChild(this.firstChild); for (var i = 0; i < arguments.length; i++) this.appendChild(typeof arguments[i] === 'string' ? document.createTextNode(arguments[i]) : arguments[i]); };
   }
   var R = JSON.parse(document.getElementById('state').textContent);
-  var OKEYS = ['standby','minmax','balance','order','schedule','standbyMin','salmon','items','itemsMin','stash'];
+  var OKEYS = ['standby','minmax','balance','order','schedule','standbyMin','salmon','items','itemsMin','stash','link'];
   var ITEMS_DEFAULT = ['*Outlet:* PNG','Balance','1. Spoungee: 0 pkt','2. Fire Gun: 0 pkt','3. Digital Timer: 0 pcs','4. Maki Su: 0 pkt','5. Nori Box Lamp Bulb: 0 pcs','6. Sauce brush: 0 pcs','7. Bamboo mini brush: 0 pcs','8. Coconut Brush:  0 pcs','9. Fish bone tweezer: 0 pcs','10. Morning White Towel: 0 pcs','11. Rice White towel: 0 pcs','12. Blue  towel: 0 pcs','13. Green  towel: 0 pcs','14. Orange  towel: 0 pcs','15. Brown  towel: 0 pcs','16. Wooden Chopsticks 45cm: 0 Set'].join('\n');
   var SALMON_DEFAULT = 'UO SHIN \nOutlet : PNG \nName: \nDate : \n\nBalance\n1. Salmon:  1 pkt\n2. Salmon Belly: 1 pkt\n3. Hirame: 1 nos 2 pkt\n4. Shima-Aji:  2 nos 3 pkt\n5. Tai:  0 nos 1 pkt';
   if (!R.outlets){
@@ -151,7 +151,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     d.minmax = d.minmax || {}; d.balance = d.balance || {}; d.schedule = d.schedule || {};
     d.order = d.order || ''; d.standby = d.standby || '';
     if (!d.sections || !d.sections.length) d.sections = defaultSections();
-    d.inst = d.inst || {}; d.stash = d.stash || {};
+    d.inst = d.inst || {}; d.stash = d.stash || {}; d.link = d.link || {};
     try { migrateCodes(d); } catch(e){}
   }
   function migrateCodes(d){
@@ -182,7 +182,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     var b = R.data[CUR.name];
     return (CUR.inst && b.inst && b.inst[CUR.inst]) ? b.inst[CUR.inst] : b;
   }
-  var DICTK = {standbyMin:1, itemsMin:1, minmax:1, balance:1, schedule:1, stash:1};
+  var DICTK = {standbyMin:1, itemsMin:1, minmax:1, balance:1, schedule:1, stash:1, link:1};
   OKEYS.forEach(function(k){
     Object.defineProperty(S, k, {enumerable:true,
       get:function(){
@@ -422,6 +422,9 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     stCheck:{en:'Need Check',my:'စစ်ရမည်'},
     stNoCheck:{en:'No Need Check',my:'မစစ်ရ'},
     done:{en:'Done',my:'ပြီးပြီ'},
+    linkhint:{en:'Balance days subtracted for {n}:',my:'{n} အတွက် နှုတ်မယ့် Balance ရက်:'},
+    linkall:{en:'all days',my:'ရက်အားလုံး'},
+    linknote:{en:'Pick the Balance days to subtract from this order day. Matching is by code only. None picked = all days.',my:'ဒီ Order ရက်ကနေ နှုတ်မယ့် Balance ရက်တွေကို ရွေးပါ။ ကုဒ်အတူတူတာကိုပဲ နှုတ်ပါမယ်။ မရွေးရင် ရက်အားလုံး။'},
     pickhint:{en:'Code letter: tap a letter to change every code on this day (A01, A02 … → C01, C02 …). Press Save to apply to all days.',my:'ကုဒ်စာလုံး: စာလုံးကိုနှိပ်ရင် ဒီနေ့က ကုဒ်အားလုံး (A01, A02 … → C01, C02 …) ပြောင်းပါမယ်။ Save နှိပ်ရင် ရက်အားလုံးမှာ ပြောင်းပါမယ်။'},
     pickdone:{en:'Changed to {n}. Press Save.',my:'{n} ပြောင်းပြီး။ Save နှိပ်ပါ။'},
     pickhave:{en:'Already on this day.',my:'ဒီနေ့မှာ ရှိပြီးသားပါ။'},
@@ -529,11 +532,11 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
   }
   function dayToggle(sec, d){
     var off = dayOff(sec, d), a = sec === 'minmax' ? t('stOrder') : t('stCheck'), b = sec === 'minmax' ? t('stNoOrder') : t('stNoCheck');
-    var wrap = el('div', {style:'display:flex;gap:6px;margin:6px 0 4px;flex-wrap:wrap'});
+    var wrap = el('div', {style:'display:flex;gap:6px;margin:6px 0 4px;flex-wrap:nowrap;flex:none'});
     [[a, true], [b, false]].forEach(function(o){
       var active = (o[1] === !off);
       var btn = el('button', {type:'button', class: active ? 'primary' : '', 'aria-pressed': active ? 'true' : 'false', text:o[0], onclick:function(){ if (!ctx.isOwner || active) return; setDayState(sec, d, o[1]); }});
-      btn.style.cssText = 'flex:1;min-width:0;padding:6px 8px;font-size:13px;min-height:36px';
+      btn.style.cssText = 'flex:none;white-space:nowrap;padding:6px 10px;font-size:13px;min-height:36px';
       if (!ctx.isOwner) btn.disabled = true;
       wrap.appendChild(btn);
     });
@@ -834,6 +837,15 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     var c = idx.names[raw.split('|')[1]];
     return (c && c.length === 1) ? c[0] : raw;
   }
+  function linkedBal(D, bal){
+    var lk = (S.link || {})[D];
+    if (!lk || !lk.length) return bal;
+    var okc = {};
+    lk.forEach(function(bd){ codeItems(S.balance[bd]).forEach(function(c){ okc['C:' + c.code] = 1; }); });
+    var out = {};
+    Object.keys(bal).forEach(function(k){ if (/^C:/.test(k) && !okc[k]) return; out[k] = bal[k]; });
+    return out;
+  }
   function balByMinKey(idx){
     var out = {};
     Object.keys(BAL).forEach(function(raw){
@@ -854,7 +866,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     }).join('\n');
   }
   function orderText0(D){
-    var bal = balByMinKey(minIndex());
+    var bal = linkedBal(D, balByMinKey(minIndex()));
     return scan(S.minmax[D]).map(function(r){
       if (!r.item) return r.line;
       var q = qtyOf(r.item.rest); if (!q) return r.line;
@@ -896,7 +908,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     return panel;
   }
   function orderPanel(){
-    var D = DAYS[ctx.orderDay], idx = minIndex(), bal = balByMinKey(idx);
+    var D = DAYS[ctx.orderDay], idx = minIndex(), bal = linkedBal(D, balByMinKey(idx));
     var rows = [];
     scan(S.minmax[D]).forEach(function(r){
       if (!r.item) return;
@@ -912,7 +924,26 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     var hp = el('div', {class:'sheet panel'}); headRows(hp, false, refreshOrderTexts); out.push(hp);
     out.push(el('p', {class:'hint', text:t('orderday') + ' · ' + t('formula')}));
     out.push(pick);
-    out.push(el('div', {class:'sheet panel', style:'padding:8px 12px'}, el('div', {class:'hint', text:dayLabel(D) + ' · ' + (dayOff('minmax', D) ? t('stNoOrder') : t('stOrder'))}), dayEditBtn(), (ctx.isOwner && dayEditOn()) ? dayToggle('minmax', D) : null));
+    var lkNow = (S.link || {})[D] || [];
+    var lkBox = el('div', {class:'sheet panel', style:'padding:8px 12px'}, el('div', {class:'hint', text:dayLabel(D) + ' · ' + (dayOff('minmax', D) ? t('stNoOrder') : t('stOrder'))}), dayEditBtn(), (ctx.isOwner && dayEditOn()) ? dayToggle('minmax', D) : null);
+    lkBox.appendChild(el('div', {class:'hint', style:'margin-top:8px', text:t('linkhint', dayLabel(D)) + ' ' + (lkNow.length ? lkNow.map(dayLabel).join(', ') : t('linkall'))}));
+    if (ctx.isOwner && dayEditOn()){
+      var lr = el('div', {style:'display:flex;gap:6px;flex-wrap:wrap;margin:6px 0'});
+      DAYS.forEach(function(bd){
+        var on = lkNow.indexOf(bd) >= 0;
+        var b = el('button', {type:'button', class: on ? 'primary' : '', 'aria-pressed': on ? 'true' : 'false', text:dayLabel(bd), onclick:function(){
+          var prevL = S.link || {}, nl = Object.assign({}, prevL), cur = (prevL[D] || []).slice();
+          var k = cur.indexOf(bd); if (k >= 0) cur.splice(k, 1); else cur.push(bd);
+          if (cur.length) nl[D] = cur; else delete nl[D];
+          save(function(){ S.link = nl; }, function(){ S.link = prevL; });
+        }});
+        b.style.cssText = 'min-height:36px;padding:4px 10px';
+        lr.appendChild(b);
+      });
+      lkBox.appendChild(lr);
+      lkBox.appendChild(el('div', {class:'hint', text:t('linknote')}));
+    }
+    out.push(lkBox);
     var list = el('div', {class:'sheet panel'});
     if (!rows.length){
       list.appendChild(el('p', {class:'hint', text:t('noorderday')}));
@@ -1786,8 +1817,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       return true;
     };
     row.appendChild(gut); row.appendChild(tx);
-    wrap.style.marginBottom = '90px';
-    wrap.appendChild(row); wrap.appendChild(msg); wrap.appendChild(fbar);
+    wrap.appendChild(row); wrap.appendChild(msg);
     fit(); buildGut(); sync();
     return wrap;
   }
@@ -2289,11 +2319,11 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       if (!d){
         kids.push(crumbs([{label:'Home', href:'#'}, {label:secName('ordering'), href:'#ordering'}, {label:sectionNames[r.sec]}]));
         kids.push(el('h2', {text:sectionNames[r.sec]}));
-        var g = el('div', {class:'days'});
+        var g = el('div', {class:'days', style:'grid-template-columns:1fr'});
         DAYS.forEach(function(dd){
           var none = dayOff(r.sec, dd);
           var lbl = r.sec === 'minmax' ? t('stNoOrder') : t('stNoCheck');
-          g.appendChild(el('div', {}, tile('#' + r.sec + '-' + slug(dd), dayLabel(dd), '', true, none ? lbl : null), (ctx.isOwner && dayEditOn()) ? dayToggle(r.sec, dd) : null));
+          g.appendChild(el('div', {style:'display:flex;gap:8px;align-items:center'}, el('div', {style:'flex:1;min-width:0'}, tile('#' + r.sec + '-' + slug(dd), dayLabel(dd), '', true, none ? lbl : null)), (ctx.isOwner && dayEditOn()) ? dayToggle(r.sec, dd) : null));
         });
         var deb = dayEditBtn(); if (deb) kids.push(deb);
         kids.push(g);
