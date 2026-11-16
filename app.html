@@ -423,16 +423,14 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     ordering:{en:'Ordering',my:'Ordering'},
     orderingsub:{en:'Min Max · Balance Checking · Order',my:'Min Max · Balance Checking · Order'},
     howtitle:{en:'How it works',my:'အလုပ်လုပ်ပုံ'},
-    how_ordering:{en:'Ordering has 3 parts.\nMin Max: write the quantity you want to keep for each item.\nBalance Checking: count what is left and enter it.\nOrder: the app takes Min Max and subtracts Balance for items with the same name, and shows what to order.',my:'Ordering မှာ အပိုင်း ၃ ပိုင်း ရှိပါတယ်။\nMin Max: ပစ္စည်းတစ်ခုချင်းစီအတွက် ထားချင်တဲ့ ပမာဏကို ရေးပါ။\nBalance Checking: ကျန်တာကို ရေတွက်ပြီး ဖြည့်ပါ။\nOrder: နာမည်တူတဲ့ ပစ္စည်းတွေရဲ့ Min Max ကနေ Balance ကို နုတ်ပြီး မှာရမယ့် ပမာဏကို အလိုအလျောက် ပြပါမယ်။'},
+    how_ordering:{en:'An ordering consists of three components: Mini/Max levels, current stock balance, and the order quantity. Under "Mini/Max," enter the desired stock level for each individual item. In "Balance Checking," input the stock quantities to be verified for the respective dates. The system will calculate the order quantity by subtracting the current balance from the specified Mini/Max level. Please note the formatting: start with "(1.)" and end with a colon ":"',my:'Ordering မှာ အစိတ်အပိုင်း သုံးခု ပါပါတယ်။ Mini/Max အဆင့်၊ လက်ကျန် (Balance)၊ မှာယူမယ့်ပမာဏ။ "Mini/Max" မှာ ပစ္စည်းတစ်ခုချင်းစီအတွက် ထားချင်တဲ့ပမာဏကို ထည့်ပါ။ "Balance Checking" မှာ ရက်အလိုက် စစ်ဆေးတဲ့ လက်ကျန်ပမာဏကို ထည့်ပါ။ စနစ်က Mini/Max ကနေ လက်ကျန်ကို နုတ်ပြီး မှာယူမယ့်ပမာဏကို တွက်ပေးပါမယ်။ ရေးပုံ: "(1.)" နဲ့ စပြီး ကော်လံ ":" နဲ့ အဆုံးသတ်ပါ။'},
     how_minmax:{en:'Each item has its own line.\nAfter the colon write the quantity to keep.\nThe item name links it to Balance Checking and Order.\nLeaders: tap Edit to change the text.',my:'ပစ္စည်းတစ်ခုစီမှာ စာကြောင်းတစ်ကြောင်း ရှိပါတယ်။\nအချိုးကော်လံ (:) နောက်မှာ ထားချင်တဲ့ ပမာဏကို ရေးပါ။\nပစ္စည်းနာမည်က Balance Checking နဲ့ Order နဲ့ ချိတ်ပေးပါတယ်။\nခေါင်းဆောင်: Edit ကိုနှိပ်ပြီး စာကို ပြင်ပါ။'},
-    how_balance:{en:'Enter what is left for each item.\nOrder = Min Max − Balance, matched by item name.\nLeaders: tap Edit to change the text.',my:'ပစ္စည်းတစ်ခုချင်းစီအတွက် ကျန်တဲ့ပမာဏကို ဖြည့်ပါ။\nOrder = Min Max − Balance ဖြစ်ပြီး ပစ္စည်းနာမည်တူတာကို နုတ်ပါတယ်။\nခေါင်းဆောင်: Edit ကိုနှိပ်ပြီး စာကို ပြင်ပါ။'},
-    how_order:{en:'The order is calculated automatically.\nFor each Min Max item: Order = Min Max − Balance of the same item.\nPick a day to see that day\'s order, then Copy or Send.',my:'မှာရမယ့်ပမာဏကို အလိုအလျောက် တွက်ပေးပါတယ်။\nMin Max ပစ္စည်းတစ်ခုချင်းစီအတွက် Order = Min Max − ပစ္စည်းတူတဲ့ Balance ဖြစ်ပါတယ်။\nရက်ကိုရွေးပြီး အဲဒီရက်ရဲ့ Order ကို ကြည့်ပါ၊ ပြီးရင် Copy သို့မဟုတ် Send လုပ်ပါ။'},
-    how_schedule:{
-      en:'Each supplier shows which day to order and which day it is delivered.\nLeaders can edit the text.',
-      my:'ပေးသွင်းသူတစ်ဦးချင်းစီအတွက် ဘယ်နေ့မှာယူပြီး ဘယ်နေ့ ရောက်မလဲ ဆိုတာ ပြထားပါတယ်။\nခေါင်းဆောင်က စာကို ပြင်လို့ရပါတယ်။'},
-    how_standby:{en:'Lowest Degree: set the lowest number for each item.\nBalance Checking: enter what is left today.\nItems at or below the lowest number are marked 🔴🔴.\nThen Copy or Send.',my:'Lowest Degree: ပစ္စည်းတစ်ခုချင်းစီအတွက် အနည်းဆုံးဂဏန်းကို သတ်မှတ်ပါ။\nBalance Checking: ဒီနေ့ ကျန်တာကို ဖြည့်ပါ။\nအနည်းဆုံးဂဏန်းနဲ့ ညီ သို့မဟုတ် နည်းရင် 🔴🔴 ပြပါမယ်။\nပြီးရင် Copy သို့မဟုတ် Send လုပ်ပါ။'},
+    how_balance:{en:'Enter only the item name for the daily check.',my:'နေ့စဉ်စစ်ဆေးမှုအတွက် ပစ္စည်းနာမည်ကိုပဲ ထည့်ပါ။'},
+    how_order:{en:'Please fill out the order form completely to place your order.\nYou need to configure which day the \'Mini Max\' balance check should be linked to. \'Mini Max Monday\' corresponds to the \'Order Monday\' setting. You can only adjust the day on which the balance is checked.',my:'မှာယူဖို့ order form ကို အပြည့်အစုံ ဖြည့်ပါ။\n\'Mini Max\' အတွက် balance စစ်မယ့်ရက်ကို ချိတ်ရပါမယ်။ \'Mini Max Monday\' က \'Order Monday\' နဲ့ ကိုက်ညီပါတယ်။ Balance စစ်တဲ့ ရက်ကိုပဲ ပြောင်းလို့ရပါတယ်။'},
+    how_schedule:{en:'Each supplier shows which day to order and which day it is delivered.',my:'ပေးသွင်းသူတစ်ဦးချင်းစီအတွက် ဘယ်နေ့မှာယူပြီး ဘယ်နေ့ ရောက်မလဲ ဆိုတာ ပြထားပါတယ်။'},
+    how_standby:{en:'Lowest Degree: set the lowest number for each item.\nChecking remaining balance… once the specified amount is reached, it will be marked 🔴',my:'Lowest Degree: ပစ္စည်းတစ်ခုချင်းစီအတွက် အနည်းဆုံးဂဏန်းကို သတ်မှတ်ပါ။\nလက်ကျန်ကို စစ်ပါ… သတ်မှတ်ထားတဲ့ပမာဏ ရောက်ရင် 🔴 ပြပါမယ်။'},
     how_items:{en:'Lowest Degree: set the lowest number for each item.\nBalance: enter what is left. Items at or below the lowest number are marked 🔴🔴 and listed to order.\nThen Copy or Send.',my:'Lowest Degree: ပစ္စည်းတစ်ခုချင်းစီအတွက် အနည်းဆုံးဂဏန်းကို သတ်မှတ်ပါ။\nBalance: ကျန်တာကို ဖြည့်ပါ။ အနည်းဆုံးဂဏန်းနဲ့ ညီ သို့မဟုတ် နည်းရင် 🔴🔴 ပြပြီး မှာရမယ့်စာရင်းထဲ ထည့်ပေးပါမယ်။\nပြီးရင် Copy သို့မဟုတ် Send လုပ်ပါ။'},
-    how_salmon:{en:'Enter the balance for each item (nos / pkt).\nThen Copy or Send.',my:'ပစ္စည်းတစ်ခုချင်းစီအတွက် လက်ကျန် (nos / pkt) ကို ဖြည့်ပါ။\nပြီးရင် Copy သို့မဟုတ် Send လုပ်ပါ။'},
+    how_salmon:{en:'Enter the balance for each item (nos / pkt).',my:'ပစ္စည်းတစ်ခုချင်းစီအတွက် လက်ကျန် (nos / pkt) ကို ဖြည့်ပါ။'},
     codetools:{en:'Codes',my:'ကုဒ်များ'},
     codehint:{en:'Add or delete a code here, then press Save.',my:'ဒီမှာ ကုဒ်ထည့်/ဖျက်ပြီး Save နှိပ်ပါ။'},
     coderest:{en:'Item name : quantity',my:'ပစ္စည်းအမည် : ပမာဏ'},
@@ -473,7 +471,9 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     desc_ordering:{en:'Ordering: Min Max (quantity to keep), Balance Checking (what is left) and Order (Min Max − Balance).',my:'Ordering: Min Max (ထားချင်တဲ့ပမာဏ)၊ Balance Checking (ကျန်တာ)၊ Order (Min Max − Balance) ပါဝင်ပါတယ်။'},
     desc_standby:{en:'Daily Standby Checking: set a lowest number for each item and enter the daily balance. Low items are marked 🔴🔴.',my:'Daily Standby Checking: ပစ္စည်းတစ်ခုချင်းစီအတွက် အနည်းဆုံးဂဏန်းသတ်မှတ်ပြီး နေ့စဉ်လက်ကျန်ဖြည့်ပါ။ နည်းရင် 🔴🔴 ပြပါမယ်။'},
     desc_items:{en:'Item Storage: a list of items with a lowest number and balance. Low items are listed to order.',my:'Item Storage: ပစ္စည်းစာရင်းအတွက် အနည်းဆုံးဂဏန်းနဲ့ လက်ကျန်။ နည်းတာတွေကို မှာရမယ့်စာရင်းထဲ ထည့်ပေးပါမယ်။'},
-    desc_salmon:{en:'Daily inspection of salmon fillets: enter the daily balance of each fish, then copy or send.',my:'Daily inspection of salmon fillets: ငါးတစ်မျိုးချင်းစီရဲ့ နေ့စဉ်လက်ကျန်ကို ဖြည့်ပြီး Copy/Send လုပ်ပါ။'},
+    desc_schedule:{en:'Ordering Schedule: a list of suppliers showing which day to order and which day it is delivered.',my:'Ordering Schedule: ပေးသွင်းသူစာရင်းအတွက် ဘယ်နေ့မှာယူပြီး ဘယ်နေ့ ရောက်မလဲ ပြပါမယ်။'},
+    balonly:{en:'Balance Checking only',my:'Balance Checking only'},
+    desc_salmon:{en:'Balance Checking only: a list of items where you enter the daily balance, then copy or send.',my:'Balance Checking only: ပစ္စည်းတွေရဲ့ နေ့စဉ်လက်ကျန်ကိုပဲ ဖြည့်ပြီး Copy/Send လုပ်ပါ။'},
     transfer:{en:'Transfer owner',my:'ပိုင်ရှင်ပြောင်းရန်'},
     transferto:{en:'New leader email',my:'ခေါင်းဆောင်အသစ်ရဲ့ အီးမေးလ်'},
     transferarm:{en:'Tap again to transfer',my:'ပြောင်းရန် ထပ်နှိပ်ပါ'},
@@ -1576,11 +1576,11 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     var box = el('div', {class:'sheet panel'});
     box.appendChild(el('div', {class:'grp', text:t('mbadd')}));
     box.appendChild(el('p', {class:'hint', text:t('mbtype')}));
-    var types = ['ordering','standby','items','salmon'];
-    ctx.addType = ctx.addType || 'ordering';
+    var types = ['ordering','schedule','standby','salmon'];
+    if (types.indexOf(ctx.addType) < 0) ctx.addType = 'ordering';
     var tb = el('div', {class:'langs', style:'padding:6px 14px'});
     types.forEach(function(ty){
-      tb.appendChild(el('button', {type:'button', class: ctx.addType === ty ? 'primary' : '', text:t(ty), onclick:function(){ ctx.addType = ty; render(); }}));
+      tb.appendChild(el('button', {type:'button', class: ctx.addType === ty ? 'primary' : '', text:(ty === 'salmon' ? t('balonly') : t(ty)), onclick:function(){ ctx.addType = ty; render(); }}));
     });
     box.appendChild(tb);
     box.appendChild(el('p', {class:'hint', text:t('desc_' + ctx.addType)}));
@@ -1589,7 +1589,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     box.appendChild(el('div', {style:'display:flex;gap:8px;flex-wrap:wrap;padding:6px 14px 14px'},
       el('button', {type:'button', text:t('mbadd'), onclick:function(){
         var ty = ctx.addType, nm = ni.value.trim().replace(/\s+/g, ' '), id = nextSecId(d);
-        var sec = {id:id, type:ty, name:(nm === t(ty) ? '' : nm)};
+        var sec = {id:id, type:ty, name:(ty === 'salmon' ? (nm || t('balonly')) : (nm === t(ty) ? '' : nm))};
         ctx.showMB = false;
         save(function(){ d.sections.push(sec); d.inst[id] = blankInst(ty); },
              function(){ d.sections = d.sections.filter(function(x){ return x !== sec; }); delete d.inst[id]; });
