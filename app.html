@@ -181,6 +181,16 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     }
     fixObj(d);
     Object.keys(d.inst || {}).forEach(function(id){ fixObj(d.inst[id]); });
+    function sbConv(o){
+      if (!o || typeof o.standby !== 'string') return;
+      o.standby = o.standby.split('\n').map(function(l){
+        if (/:/.test(l)) return l;
+        var m = l.match(/^(\s*\d+\s*[.)]\s*)(.*?)\s*\(([^)]*)\)\s*-.*$/);
+        return m ? m[1] + m[2] + ': 0 ' + m[3] : l;
+      }).join('\n');
+    }
+    sbConv(d);
+    Object.keys(d.inst || {}).forEach(function(id){ sbConv(d.inst[id]); });
   }
   function migrateCodes(d){
     function conv(text, letter, minKey, kind){
@@ -645,92 +655,6 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
   }
 
   /* ---------- views ---------- */
-  var CODE_LINE = /^(\s*"?\s*)([A-Za-z]{1,3}\d+)\s*([.)])\s?(.*?)(\s*:.*)?$/;
-  function codeItems(text){
-    var out = [];
-    String(text || '').split('\n').forEach(function(l, i){
-      var m = l.match(CODE_LINE); if (m) out.push({code:m[2].toUpperCase(), name:m[4].trim(), sep:m[3], idx:i});
-    });
-    return out;
-  }
-  function dayTargets(){
-    var out = [];
-    ['minmax', 'balance'].forEach(function(sec){ DAYS.forEach(function(d){ out.push({sec:sec, d:d}); }); });
-    return out;
-  }
-  function propagatePlan(path, next, prev){
-    var m = path.match(/^(minmax|balance)(.+)$/); if (!m || DAYS.indexOf(m[2]) < 0) return null;
-    var curSec = m[1], curDay = m[2];
-    var others = dayTargets().filter(function(x){ return !(x.sec === curSec && x.d === curDay); });
-    var pItems = codeItems(prev), nItems = codeItems(next);
-    var pSet = {}, nSet = {}; pItems.forEach(function(c){ pSet[c.code] = c; }); nItems.forEach(function(c){ nSet[c.code] = c; });
-    var removed = pItems.filter(function(c){ return !nSet[c.code]; }), added = nItems.filter(function(c){ return !pSet[c.code]; });
-    var renames = [], delet = [], usedAdd = {};
-    removed.forEach(function(r){
-      var k = -1;
-      for (var q = 0; q < added.length; q++){ if (!usedAdd[q] && added[q].name === r.name){ k = q; break; } }
-      if (k < 0){ for (var q2 = 0; q2 < added.length; q2++){ if (!usedAdd[q2] && removed.length === added.length){ k = q2; break; } } }
-      if (k >= 0){ usedAdd[k] = 1; renames.push({from:r.code, to:added[k].code}); } else delet.push(r.code);
-    });
-    var known = {};
-    pItems.forEach(function(c){ known[c.code] = 1; });
-    others.forEach(function(x){ codeItems(S[x.sec][x.d]).forEach(function(c){ known[c.code] = 1; }); });
-    var fresh = added.filter(function(c, q){ return !usedAdd[q] && !known[c.code]; });
-    var renamedNames = nItems.filter(function(c){ return pSet[c.code] && pSet[c.code].name !== c.name && c.name; });
-    if (!fresh.length && !renamedNames.length && !renames.length && !delet.length) return null;
-    var before = {}, after = {};
-    others.forEach(function(x){
-      var key = x.sec + '|' + x.d, text = S[x.sec][x.d];
-      before[key] = text;
-      if (/^\s*not need/i.test(String(text))){ after[key] = text; return; }
-      var lines = String(text).split('\n');
-      var codesNow = function(){ var o = {}; lines.forEach(function(l){ var mm = l.match(CODE_LINE); if (mm) o[mm[2].toUpperCase()] = 1; }); return o; };
-      renames.forEach(function(r){
-        var have = codesNow(); if (have[r.to]) return;
-        lines = lines.map(function(l){ var mm = l.match(CODE_LINE); if (mm && mm[2].toUpperCase() === r.from) return mm[1] + r.to + mm[3] + ' ' + mm[4] + (mm[5] || ''); return l; });
-      });
-      if (delet.length) lines = lines.filter(function(l){ var mm = l.match(CODE_LINE); return !(mm && delet.indexOf(mm[2].toUpperCase()) >= 0); });
-      renamedNames.forEach(function(c){
-        lines = lines.map(function(l){ var mm = l.match(CODE_LINE); if (mm && mm[2].toUpperCase() === c.code) return mm[1] + mm[2] + mm[3] + ' ' + c.name + (mm[5] || ' :'); return l; });
-      });
-      fresh.forEach(function(c){
-        var pos = -1, k = nItems.findIndex(function(z){ return z.code === c.code; });
-        for (var q = k - 1; q >= 0 && pos < 0; q--){
-          for (var j = 0; j < lines.length; j++){ var mm = lines[j].match(CODE_LINE); if (mm && mm[2].toUpperCase() === nItems[q].code){ pos = j; break; } }
-        }
-        if (pos < 0){ for (var j2 = 0; j2 < lines.length; j2++){ if (CODE_LINE.test(lines[j2])) pos = j2; } }
-        if (pos < 0) pos = lines.length - 1;
-        lines.splice(pos + 1, 0, c.code + c.sep + ' ' + c.name + ' :');
-      });
-      after[key] = lines.join('\n');
-    });
-    return {
-      apply:function(){ Object.keys(after).forEach(function(k){ var p = k.split('|'); S[p[0]][p[1]] = after[k]; }); },
-      undo:function(){ Object.keys(before).forEach(function(k){ var p = k.split('|'); S[p[0]][p[1]] = before[k]; }); }
-    };
-  }
-  function codePicker(ta, path){
-    var wrap = el('div', {class:'sheet panel', style:'padding:10px 12px'});
-    var msg = el('p', {class:'hint', text:''});
-    function cur(){ var cnt = {}; codeItems(ta.value).forEach(function(c){ var L = c.code.replace(/\d+$/, ''); cnt[L] = (cnt[L] || 0) + 1; }); var best = '', n = 0; Object.keys(cnt).forEach(function(L){ if (cnt[L] > n){ n = cnt[L]; best = L; } }); return best; }
-    function draw(){
-      wrap.textContent = '';
-      wrap.appendChild(el('div', {class:'hint', text:t('pickhint')}));
-      var bar = el('div', {style:'display:flex;gap:8px;flex-wrap:wrap;margin:8px 0'});
-      var now = cur();
-      ['A', 'B', 'C', 'D', 'E', 'F', 'G'].forEach(function(L){
-        var b = el('button', {type:'button', class: L === now ? 'primary' : '', text:L, onclick:function(){
-          var r = ta._setLetter ? ta._setLetter(L) : null;
-          msg.textContent = r === true ? t('pickdone', L) : (r || ''); draw();
-        }});
-        b.style.cssText = 'min-height:40px;min-width:44px;padding:4px 12px;font-weight:700';
-        bar.appendChild(b);
-      });
-      wrap.appendChild(bar); wrap.appendChild(msg);
-    }
-    draw();
-    return wrap;
-  }
   function sheetView(path, title, getText, setText, viewText){
     var shown = viewText || getText;
     var text = getText();
@@ -1000,12 +924,11 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
   var SB_ITEM = /^(\s*(?:[A-Za-z]{1,3})?\d+\s*[\)\.]\s*)(.*)$/;
   function sbScan(text){
     return String(text).split('\n').map(function(line){
-      var m = line.match(SB_ITEM);
+      var m = line.match(IT_ITEM);
       if (!m) return {line:line, item:null, date:/^\s*date\s*:/i.test(line)};
-      var body = m[2], name = body, val = '', i = body.indexOf('-');
-      if (i >= 0){ name = body.slice(0, i); val = body.slice(i + 1).trim(); }
-      name = name.trim();
-      return {line:line, date:false, item:{prefix:m[1], name:name, val:val, key:ikey(m[1], '', name)}};
+      var unit = m[3].replace(/^\s*[\d.,]+\s*/, '').trim(), base = m[2].trim().replace(/\s+/g, ' ');
+      var sname = unit ? base + ' (' + unit + ')' : base;
+      return {line:line, date:false, item:{prefix:m[1], name:sname, base:base, unit:unit, val:'', key:ikey(m[1], '', sname)}};
     });
   }
   function needOf(key){
@@ -1019,7 +942,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
       var v = STB[r.item.key];
       if (v == null || String(v).trim() === '') return {t:r.line, need:false};
       var nd = needOf(r.item.key);
-      return {t:r.item.prefix + r.item.name + '- ' + v + (nd ? ' 🔴🔴' : ''), need:nd};
+      return {t:r.item.prefix + r.item.base + ': ' + v + (r.item.unit ? ' ' + r.item.unit : '') + (nd ? ' 🔴🔴' : ''), need:nd};
     }));
   }
   function standbyFilled(text){ return standbyLines(text).map(function(x){ return x.t; }).join('\n'); }
@@ -1052,7 +975,7 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
         var prev = S.standbyMin || {}, next = {}, prevT = S.standby, nextT = prevT;
         fields.forEach(function(f){ var v = f.inp.value.trim(); if (v !== '') next[f.key] = v; });
         var cs = Object.keys(UCH);
-        if (cs.length) nextT = String(prevT).split('\n').map(function(l){ var rr = sbScan(l)[0], c = rr && rr.item && rr.item.key; return (c && UCH[c] && /\([^)]*\)/.test(l)) ? l.replace(/\([^)]*\)/, '(' + UCH[c] + ')') : l; }).join('\n');
+        if (cs.length) nextT = String(prevT).split('\n').map(function(l){ var rr = sbScan(l)[0], c = rr && rr.item && rr.item.key; return (c && UCH[c]) ? l.replace(/[A-Za-z]+\s*$/, UCH[c]) : l; }).join('\n');
         sb.disabled = true;
         save(function(){ S.standbyMin = next; S.standby = nextT; }, function(){ S.standbyMin = prev; S.standby = prevT; });
       }});
@@ -1709,336 +1632,6 @@ input.qty.low{border-color:var(--bad);color:var(--bad)}
     if (!pairs || pairs.length !== 1) return null;
     return m[1] + m[2].replace(/(\d+(?:\.\d+)?\s*)[A-Za-z]+/, '$1' + u);
   }
-  function dayEditor(ta, path){
-    var wrap = el('div', {class:'sheet panel', style:'padding:6px 8px'});
-    var rows = ta.value.split('\n').map(function(l){
-      var m = l.match(CODE_LINE);
-      return m ? {lead:m[1], code:m[2].toUpperCase(), sep:m[3], name:m[4].trim(), rest:(m[5] || '')} : {text:l};
-    });
-    function sync(){ ta.value = rows.map(function(r){ return r.code ? r.lead + r.code + r.sep + ' ' + r.name + r.rest : r.text; }).join('\n'); }
-    function build(){
-      wrap.textContent = '';
-      wrap.appendChild(el('p', {class:'hint', text:t('mondayonly')}));
-      rows.forEach(function(r){
-        var line = el('div', {style:'display:flex;gap:6px;align-items:center;margin:4px 0;flex-wrap:wrap'});
-        if (r.code){
-          var cb = el('input', {type:'text', readonly:'readonly', 'aria-label':'Code', tabindex:'-1'});
-          cb.value = r.code;
-          cb.style.cssText = 'box-sizing:border-box;width:58px;height:34px;min-height:0;padding:0 4px;font:600 13px var(--mono);text-align:center;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)';
-          var nm = el('span', {style:'flex:1;min-width:120px;font-weight:600', text:r.name});
-          var ri = el('input', {class:'qty', type:'text', autocomplete:'off', style:'width:130px;text-align:left'});
-          ri.value = r.rest.replace(/^\s*:\s*/, '');
-          ri.addEventListener('input', function(){ var v = ri.value; r.rest = v === '' ? ' :' : ' : ' + v; sync(); });
-          line.appendChild(cb); line.appendChild(nm); line.appendChild(ri);
-        } else {
-          var ti = el('input', {class:'qty', type:'text', autocomplete:'off', style:'flex:1;min-width:140px;text-align:left;font-weight:600'});
-          ti.value = r.text;
-          ti.addEventListener('input', function(){ r.text = ti.value; sync(); });
-          line.appendChild(ti);
-        }
-        wrap.appendChild(line);
-      });
-    }
-    ta._setLetter = function(L){
-      var seen = {}, map = [];
-      for (var i = 0; i < rows.length; i++){
-        if (!rows[i].code) continue;
-        var nc = L + rows[i].code.replace(/^[A-Za-z]+/, '');
-        if (seen[nc]) return t('codedup');
-        seen[nc] = 1; map.push([i, nc]);
-      }
-      map.forEach(function(p){ rows[p[0]].code = p[1]; });
-      sync(); build(); return true;
-    };
-    build();
-    return wrap;
-  }
-  function gutterEditor(ta, path){
-    var NUM = (path === 'order'), HIDE = /^salmon/.test(path), LH = 34, PADT = 6;
-    var CRE = NUM ? /^(\s*)(\d+)\s*([.)])\s?(.*)$/ : /^(\s*"?\s*)([A-Za-z]{1,3}\d+)\s*([.)])\s?(.*)$/;
-    var lines = [], codes = [], seps = [], leads = [];
-    function parse(v){
-      lines = []; codes = []; seps = []; leads = [];
-      String(v).split('\n').forEach(function(l){
-        var m = l.match(CRE);
-        if (m){ leads.push(m[1]); codes.push(m[2].toUpperCase()); seps.push(m[3]); lines.push(m[4]); }
-        else { leads.push(''); codes.push(null); seps.push(NUM ? ')' : '.'); lines.push(l); }
-      });
-    }
-    parse(ta.value);
-    var wrap = el('div', {class:'sheet panel', style:'padding:0'});
-    var msg = el('p', {class:'hint', text:HIDE ? '' : t('gutterhint')});
-    var row = el('div', {style:'display:flex;align-items:flex-start'});
-    var gut = el('div', {style:'flex:0 0 ' + (HIDE ? 0 : 70) + 'px;padding:' + (PADT + 3) + 'px 0 0 8px;box-sizing:border-box'});
-    var tx = el('textarea', {class:'txt', spellcheck:'false', wrap:'off', 'aria-label':t('edit')});
-    tx.style.cssText = 'flex:1;width:auto;min-width:0;white-space:pre;overflow-x:auto;overflow-y:hidden;resize:none;min-height:0;border-radius:0;line-height:' + LH + 'px;padding:' + PADT + 'px 10px';
-    tx.value = lines.join('\n');
-    function nextAny(){
-      if (NUM){ var mx = 0; codes.forEach(function(c){ if (c && /^\d+$/.test(c)) mx = Math.max(mx, parseInt(c, 10)); }); return String(mx + 1); }
-      return nextCode(ta.value, codeLetterFor(ta.value, path));
-    }
-    function sync(){
-      if (HIDE){
-        var cnt = 0;
-        lines.forEach(function(l, i){
-          if (!codes[i] && /:/.test(l) && !/^\s*(outlet|name|date|balance)\b/i.test(l)){
-            var tmp = lines.map(function(x, k){ return codes[k] ? codes[k] + '. ' + x : x; }).join('\n');
-            codes[i] = nextCode(tmp, 'F'); seps[i] = '.'; leads[i] = '';
-          }
-        });
-      }
-      ta.value = lines.map(function(l, i){ return codes[i] ? leads[i] + codes[i] + seps[i] + ' ' + l : l; }).join('\n');
-    }
-    function fit(){ tx.style.height = (lines.length * LH + PADT * 2 + 4) + 'px'; }
-    function buildGut(){
-      gut.textContent = '';
-      if (HIDE) return;
-      lines.forEach(function(l, i){
-        var ci = el('input', {type:'text', autocomplete:'off', autocapitalize:'characters', 'aria-label':'Code', placeholder:''});
-        ci.style.cssText = 'display:block;box-sizing:border-box;width:58px;height:' + (LH - 6) + 'px;min-height:0;margin:0 0 6px;padding:0 4px;font:600 13px var(--mono);text-align:center;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)';
-        ci.value = codes[i] || '';
-        function paint(){ ci.style.borderColor = ci.value ? 'var(--line)' : 'transparent'; ci.style.background = ci.value ? 'var(--bg)' : 'transparent'; }
-        paint(); ['focus', 'input', 'blur'].forEach(function(ev){ ci.addEventListener(ev, function(){ setTimeout(paint, 0); }); });
-        var pre = false;
-        ci.addEventListener('input', function(){ pre = false; });
-        ci.addEventListener('blur', function(){
-          var v = ci.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-          if (pre && ci.value === nextAny()){ ci.value = ''; v = ''; }
-          if (v === ''){ codes[i] = null; ci.value = ''; msg.textContent = ''; sync(); return; }
-          var ok = NUM ? /^\d+$/.test(v) : /^[A-Z]{1,3}\d+$/.test(v);
-          if (!ok){ ci.value = codes[i] || ''; msg.textContent = t('codebad'); return; }
-          if (!NUM && codes.some(function(c, k){ return k !== i && c === v; })){ ci.value = codes[i] || ''; msg.textContent = t('codedup'); return; }
-          codes[i] = v; ci.value = v; msg.textContent = ''; sync();
-        });
-        gut.appendChild(ci);
-      });
-    }
-    tx.addEventListener('input', function(){
-      var nl = tx.value.split('\n'), ol = lines, k = nl.length - ol.length;
-      if (k !== 0){
-        var p = 0; while (p < ol.length && p < nl.length && ol[p] === nl[p]) p++;
-        if (k > 0){
-          var at = p + (nl[p] !== undefined && p < ol.length && nl[p].length < ol[p].length ? 1 : (p < ol.length && nl[p] !== ol[p] ? 1 : 0));
-          for (var q = 0; q < k; q++){ codes.splice(at, 0, null); seps.splice(at, 0, NUM ? ')' : '.'); leads.splice(at, 0, ''); }
-        } else {
-          var rm = -k, at2 = (p < nl.length && nl[p].indexOf(ol[p]) === 0 && nl[p].length > ol[p].length) ? p + 1 : p;
-          codes.splice(at2, rm); seps.splice(at2, rm); leads.splice(at2, rm);
-        }
-        lines = nl; fit(); sync(); buildGut();
-      } else { lines = nl; sync(); }
-    });
-    var CUR = -1;
-    function lineAt(){ var up = tx.value.slice(0, tx.selectionStart || 0); return up.split('\n').length - 1; }
-    ['focus', 'click', 'keyup', 'select', 'touchend'].forEach(function(ev){ tx.addEventListener(ev, function(){ setTimeout(function(){ CUR = lineAt(); }, 0); }); });
-    var oldBuild = buildGut;
-    buildGut = function(){ oldBuild(); Array.prototype.forEach.call(gut.querySelectorAll('input'), function(inp, i){ inp.addEventListener('focus', function(){ CUR = i; }); }); };
-    function relayout(focusIdx){
-      tx.value = lines.join('\n'); fit(); sync(); buildGut();
-      try { var pos = 0; for (var q = 0; q < focusIdx; q++) pos += lines[q].length + 1; tx.focus(); tx.setSelectionRange(pos, pos); CUR = focusIdx; } catch(e){}
-    }
-    var fbar = el('div', {style:'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:60;display:flex;gap:12px;padding:8px 12px;background:var(--surface,#fff);border:1px solid var(--line);border-radius:999px;box-shadow:0 4px 18px rgba(0,0,0,.28)'});
-    var addB = el('button', {type:'button', text:'＋', 'aria-label':t('codeadd'), onclick:function(){
-      var at = (CUR >= 0 ? CUR : lines.length - 1) + 1;
-      lines.splice(at, 0, ''); codes.splice(at, 0, null); seps.splice(at, 0, NUM ? ')' : '.'); leads.splice(at, 0, '');
-      relayout(at);
-    }});
-    var armed = false, delB = el('button', {type:'button', text:'✕', 'aria-label':t('codedel'), onclick:function(){
-      if (CUR < 0 || CUR >= lines.length){ msg.textContent = t('codedelpick'); return; }
-      if (!armed){ armed = true; delB.textContent = '✕?'; setTimeout(function(){ armed = false; delB.textContent = '✕'; }, 3000); return; }
-      armed = false; delB.textContent = '✕';
-      lines.splice(CUR, 1); codes.splice(CUR, 1); seps.splice(CUR, 1); leads.splice(CUR, 1);
-      if (!lines.length){ lines.push(''); codes.push(null); seps.push(NUM ? ')' : '.'); leads.push(''); }
-      relayout(Math.min(CUR, lines.length - 1));
-    }});
-    [addB, delB].forEach(function(bn){ bn.style.cssText = 'min-width:56px;height:46px;font-size:22px;border-radius:999px;padding:0 14px'; bn.addEventListener('mousedown', function(e){ e.preventDefault(); }); fbar.appendChild(bn); });
-    ta._setLetter = function(L){
-      if (NUM) return null;
-      var map = [], seen = {};
-      for (var i = 0; i < codes.length; i++){
-        if (!codes[i]) continue;
-        var nc = L + codes[i].replace(/^[A-Za-z]+/, '');
-        if (seen[nc]) return t('codedup');
-        seen[nc] = 1; map.push([i, nc]);
-      }
-      map.forEach(function(p){ codes[p[0]] = p[1]; });
-      sync(); buildGut(); return true;
-    };
-    ta._addLine = function(code, name){
-      var at = -1, L = code.replace(/\d+$/, '');
-      codes.forEach(function(c, i){ if (c && !NUM && c.replace(/\d+$/, '') === L) at = i; });
-      if (at < 0) codes.forEach(function(c, i){ if (c) at = i; });
-      if (at < 0) at = lines.length - 1;
-      at += 1;
-      lines.splice(at, 0, name + ' :'); codes.splice(at, 0, NUM ? nextAny() : code); seps.splice(at, 0, NUM ? ')' : '.'); leads.splice(at, 0, '');
-      tx.value = lines.join('\n'); fit(); sync(); buildGut(); CUR = at;
-      return true;
-    };
-    row.appendChild(gut); row.appendChild(tx);
-    wrap.appendChild(row); wrap.appendChild(msg);
-    fit(); buildGut(); sync();
-    return wrap;
-  }
-  function rowsEditor(ta, path){
-    var wrap = el('div', {class:'sheet panel', style:'padding:8px 10px'});
-    var msg = el('p', {class:'hint', text:''});
-    var CRE = /^(\s*"?\s*)([A-Za-z]{0,3}\d+)\s*([.)])\s?(.*)$/, HIDE = /^salmon/.test(path), NUMERIC = path === 'order';
-    var rows = ta.value.split('\n').map(function(l){
-      var m = l.match(CRE);
-      return m ? {lead:m[1], code:m[2].toUpperCase(), sep:m[3], text:m[4]} : {code:null, text:l};
-    });
-    function sync(){ ta.value = rows.map(function(r){ return r.code !== null ? r.lead + r.code + r.sep + ' ' + r.text : r.text; }).join('\n'); }
-    function unitSlots(line){
-      var out = [], m;
-      if (/^standby/.test(path)){
-        m = line.match(/\(([^)]*)\)/);
-        if (m) out.push({start:m.index + 1, end:m.index + 1 + m[1].length, unit:m[1].trim()});
-        return out;
-      }
-      m = line.match(/^(.*?:\s*)(.*)$/); if (!m) return out;
-      var off = m[1].length, re = /(\d+(?:\.\d+)?\s*)([A-Za-z]+)/g, u;
-      while ((u = re.exec(m[2])) !== null) out.push({start:off + u.index + u[1].length, end:off + u.index + u[1].length + u[2].length, unit:u[2]});
-      return out;
-    }
-    var SEL = -1;
-    function build(){
-      wrap.textContent = '';
-      rows.forEach(function(r, i){
-        var line = el('div', {style:'display:flex;gap:6px;align-items:center;margin:5px 0;flex-wrap:wrap'});
-        var ti = el('input', {class:'qty', type:'text', autocomplete:'off', style:'flex:1;min-width:140px;text-align:left'});
-        ti.value = r.text;
-        ti.addEventListener('input', function(){ r.text = ti.value; sync(); });
-        if (r.code !== null){
-          var ci = el('input', {class:'qty', type:'text', autocomplete:'off', autocapitalize:'characters', 'aria-label':'Code', style:'width:64px;text-align:left'});
-          ci.value = r.code;
-          ci.addEventListener('change', function(){
-            var v = ci.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-            if (!(NUMERIC ? /^[A-Z]{0,3}\d+$/ : /^[A-Z]{1,3}\d+$/).test(v)){ ci.value = r.code; msg.textContent = t('codebad'); return; }
-            if (rows.some(function(o, j){ return j !== i && o.code === v; })){ ci.value = r.code; msg.textContent = t('codedup'); return; }
-            r.code = v; ci.value = v; msg.textContent = ''; sync();
-          });
-          if (!HIDE) line.appendChild(ci);
-          line.appendChild(ti);
-          ci.addEventListener('focus', function(){ SEL = i; });
-          ti.addEventListener('focus', function(){ SEL = i; });
-        } else {
-          ti.style.fontWeight = '600';
-          ti.addEventListener('focus', function(){ SEL = i; });
-          line.appendChild(ti);
-        }
-        wrap.appendChild(line);
-      });
-      var bar = el('div', {style:'display:flex;gap:10px;margin:10px 0 4px'});
-      bar.appendChild(el('button', {type:'button', text:'＋', 'aria-label':t('codeadd'), onclick:function(){
-        var code, txt, psep = '.';
-        if (NUMERIC){ var mx = 0; rows.forEach(function(o){ if (o.code !== null){ var nn = parseInt(String(o.code).replace(/^[A-Z]+/, ''), 10); if (nn > mx) mx = nn; psep = o.sep; } }); code = String(mx + 1); }
-        else code = nextCode(ta.value, codeLetterFor(ta.value, path));
-        if (/^standby/.test(path)) txt = '(pkt)-';
-        else if (/^(minmax|balance|order)/.test(path)) txt = ':';
-        else txt = ': 0 pkt';
-        var at = SEL >= 0 ? SEL + 1 : rows.length; rows.splice(at, 0, {lead:'', code:code, sep:psep, text:txt}); SEL = at;
-        sync(); build();
-        try { var ins = wrap.querySelectorAll('input[aria-label=Code]'); var last = Array.prototype.filter.call(ins, function(x){ return x.value === code; })[0]; var f = last.parentNode.querySelectorAll('input')[1]; f.focus(); f.setSelectionRange(0, 0); } catch(e){}
-      }}));
-      bar.appendChild(el('button', {type:'button', text:'＋ ' + t('addtext'), onclick:function(){
-        var at = SEL >= 0 ? SEL + 1 : rows.length; rows.splice(at, 0, {code:null, text:''}); SEL = at; sync(); build();
-        try { wrap.querySelectorAll('input')[0]; var all = wrap.querySelectorAll('.qty:not([aria-label=Code])'); var cnt = 0; for (var q = 0; q < at; q++) cnt++; all[at].focus(); } catch(e){}
-      }}));
-      var armed = false, del = el('button', {type:'button', text:'✕', 'aria-label':t('codedel'), onclick:function(){
-        var r = rows[SEL];
-        if (!r){ msg.textContent = t('codedelpick'); return; }
-        if (!armed){ armed = true; del.textContent = '✕ ' + (r.code || '') + '?'; setTimeout(function(){ armed = false; del.textContent = '✕'; }, 3000); return; }
-        rows.splice(SEL, 1); SEL = -1; sync(); build();
-      }});
-      bar.appendChild(del);
-      wrap.appendChild(bar);
-      wrap.appendChild(msg);
-    }
-    build();
-    return wrap;
-  }
-  function codeTools(ta, path){
-    var box = el('div', {class:'sheet panel', style:'margin:8px 0'});
-    box.appendChild(el('div', {class:'grp', text:t('codetools')}));
-    var msg = el('p', {class:'hint', text:t('codehint')});
-    var cI = el('input', {class:'qty', type:'text', autocomplete:'off', autocapitalize:'characters', 'aria-label':'Code', style:'width:84px;text-align:left'});
-    var nI = el('input', {class:'qty', type:'text', autocomplete:'off', placeholder:t('item'), style:'flex:1;min-width:130px;text-align:left'});
-    var qI = el('input', {class:'qty', type:'text', inputmode:'decimal', autocomplete:'off', placeholder:t('qty'), style:'width:72px;text-align:left'});
-    var uS = unitSel();
-    function sync(){ cI.value = nextCode(ta.value, codeLetterFor(ta.value, path)); }
-    sync();
-    var addB = el('button', {type:'button', text:t('codeadd'), onclick:function(){
-      var code = cI.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-      if (!/^[A-Z]{1,3}\d+$/.test(code)){ msg.textContent = t('codebad'); return; }
-      if (codesIn(ta.value).indexOf(code) >= 0){ msg.textContent = t('codedup'); return; }
-      var nm = nI.value.trim(), q = qI.value.trim().replace(',', '.'), u = uS.value, line;
-      if (!nm){ msg.textContent = t('codenoname'); return; }
-      if (/^standby/.test(path)) line = code + '. ' + nm + ' (' + u + ')-';
-      else if (/^(minmax|balance)/.test(path)) line = code + '. ' + nm + ' :' + (q ? ' ' + q + ' ' + u : '');
-      else line = code + '. ' + nm + ': ' + (q || '0') + ' ' + u;
-      var v = ta.value; if (v && !/\n$/.test(v)) v += '\n';
-      ta.value = v + line;
-      nI.value = ''; qI.value = ''; sync(); msg.textContent = t('codeadded', code); refreshUnits();
-      try { ta.scrollTop = ta.scrollHeight; } catch(e){}
-    }});
-    box.appendChild(el('div', {style:'display:flex;gap:8px;flex-wrap:wrap;padding:6px 14px'}, cI, nI, qI, uS, addB));
-    var ul = el('div', {style:'max-height:280px;overflow:auto;padding:0 14px 8px'});
-    function unitSlots(line){
-      var out = [], m;
-      if (/^standby/.test(path)){
-        m = line.match(/\(([^)]*)\)/);
-        if (m) out.push({start:m.index + 1, end:m.index + 1 + m[1].length, unit:m[1].trim()});
-        return out;
-      }
-      m = line.match(/^(.*?:\s*)(.*)$/); if (!m) return out;
-      var off = m[1].length, re = /(\d+(?:\.\d+)?\s*)([A-Za-z]+)/g, u;
-      while ((u = re.exec(m[2])) !== null) out.push({start:off + u.index + u[1].length, end:off + u.index + u[1].length + u[2].length, unit:u[2]});
-      return out;
-    }
-    function refreshUnits(){
-      ul.textContent = '';
-      var lines = ta.value.split('\n'), any = false;
-      lines.forEach(function(line, li){
-        if (!lineCode(line)) return;
-        var slots = unitSlots(line); if (!slots.length) return;
-        any = true;
-        var nm = line.replace(/^\s*"?\s*[A-Za-z]{1,3}\d+\s*[\)\.]\s*/, '').replace(/\s*[:(\-].*$/, '');
-        var row = el('div', {style:'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0'},
-          el('span', {style:'flex:1;min-width:150px', text:lineCode(line) + '  ' + nm}));
-        slots.forEach(function(sl, k){
-          var sel = unitSel(), cur = sl.unit.toLowerCase();
-          if (UNITS5.indexOf(cur) < 0) sel.insertBefore(el('option', {value:cur, text:sl.unit}), sel.firstChild);
-          sel.value = cur;
-          sel.addEventListener('change', function(){
-            var ls = ta.value.split('\n'), s2 = unitSlots(ls[li]);
-            if (!s2[k]) return;
-            ls[li] = ls[li].slice(0, s2[k].start) + sel.value + ls[li].slice(s2[k].end);
-            ta.value = ls.join('\n'); msg.textContent = t('unitdone'); refreshUnits();
-          });
-          row.appendChild(sel);
-        });
-        ul.appendChild(row);
-      });
-      if (!any) ul.appendChild(el('p', {class:'hint', text:t('unitsnone')}));
-    }
-    var rt = null;
-    ta.addEventListener('input', function(){ clearTimeout(rt); rt = setTimeout(refreshUnits, 500); });
-    refreshUnits();
-    var dI = el('input', {class:'qty', type:'text', autocomplete:'off', autocapitalize:'characters', placeholder:t('codeto'), style:'width:120px;text-align:left'});
-    var armed = false;
-    var delB = el('button', {type:'button', text:t('codedel'), onclick:function(){
-      var code = dI.value.trim().toUpperCase();
-      if (!code) return;
-      var lines = ta.value.split('\n'), keep = lines.filter(function(l){ return lineCode(l) !== code; });
-      if (keep.length === lines.length){ msg.textContent = t('codenone'); return; }
-      if (!armed){ armed = true; delB.textContent = t('codedelarm'); setTimeout(function(){ armed = false; delB.textContent = t('codedel'); }, 3000); return; }
-      armed = false; delB.textContent = t('codedel');
-      ta.value = keep.join('\n'); dI.value = ''; sync(); msg.textContent = t('codedeleted'); refreshUnits();
-    }});
-    box.appendChild(el('div', {style:'display:flex;gap:8px;flex-wrap:wrap;padding:6px 14px'}, dI, delB));
-    box.appendChild(msg);
-    return box;
-  }
-  var SUP_INPUTS = {};
   function supplierTiles(){
     var g = el('div', {class:'tiles'});
     SUP_INPUTS = {};
